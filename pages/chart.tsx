@@ -108,7 +108,7 @@ export default function ChartView() {
       width: chartContainerRef.current.clientWidth,
       height: 500,
       layout: {
-        background: { type: 'solid', color: '#ffffff' }, // corrected type
+        background: '#ffffff',
         textColor: '#333',
       },
       grid: {
