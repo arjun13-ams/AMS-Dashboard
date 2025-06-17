@@ -6,14 +6,12 @@ import {
   CandlestickData,
   LineData,
   HistogramData,
-  UTCTimestamp,
 } from 'lightweight-charts';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// EMA calculation helper
 function calculateEMA(values: number[], period: number): number[] {
   const k = 2 / (period + 1);
   let emaArray: number[] = [];
@@ -39,7 +37,6 @@ export default function ChartView() {
   const ema21SeriesRef = useRef<any>(null);
   const volumeSeriesRef = useRef<any>(null);
 
-  // Fetch symbol suggestions when user types (case-insensitive contains)
   useEffect(() => {
     if (!symbol) {
       setSuggestions([]);
@@ -61,7 +58,6 @@ export default function ChartView() {
     fetchSymbols();
   }, [symbol]);
 
-  // Fetch OHLCV data when symbol changes
   useEffect(() => {
     if (!symbol) return;
 
@@ -80,12 +76,10 @@ export default function ChartView() {
     fetchData();
   }, [symbol]);
 
-  // Setup chart when OHLCV data changes
   useEffect(() => {
     if (!ohlcvData.length) return;
     if (!chartContainerRef.current) return;
 
-    // Remove existing chart if any
     if (chartRef.current) {
       chartRef.current.remove();
       chartRef.current = null;
@@ -95,7 +89,7 @@ export default function ChartView() {
       width: chartContainerRef.current.clientWidth,
       height: 500,
       layout: {
-        background: { color: '#ffffff' },  // <-- Correct usage here
+        background: { color: '#ffffff' },
         textColor: '#333',
       },
       grid: {
@@ -117,7 +111,15 @@ export default function ChartView() {
 
     chartRef.current = chart;
 
-    // Prepare candlestick data - time as YYYY-MM-DD string (accepted by lightweight-charts)
+    // Add separate price scale for volume on left bottom
+    chart.priceScale('volume-scale', {
+      scaleMargins: {
+        top: 0.8,
+        bottom: 0,
+      },
+      borderVisible: false,
+    });
+
     const candles: CandlestickData[] = ohlcvData.map((row) => ({
       time: row.date,
       open: row.open,
@@ -126,22 +128,18 @@ export default function ChartView() {
       close: row.close,
     }));
 
-    // Add candlestick series
-    const candleSeries = chart.addCandlestickSeries({
-      priceScaleId: 'right',
-    });
+    const candleSeries = chart.addCandlestickSeries({ priceScaleId: 'right' });
     candleSeries.setData(candles);
     candleSeriesRef.current = candleSeries;
 
-    // Calculate EMA on close prices
     const closes = ohlcvData.map((row) => row.close);
     const ema10 = calculateEMA(closes, 10);
     const ema21 = calculateEMA(closes, 21);
 
-    // Add EMA10 line series - green, thin width 2
     const ema10Series = chart.addLineSeries({
       color: 'green',
       lineWidth: 2,
+      priceScaleId: 'right',
     });
     ema10Series.setData(
       ema10.map((value, idx) => ({
@@ -151,10 +149,10 @@ export default function ChartView() {
     );
     ema10SeriesRef.current = ema10Series;
 
-    // Add EMA21 line series - red, thin width 2
     const ema21Series = chart.addLineSeries({
       color: 'red',
       lineWidth: 2,
+      priceScaleId: 'right',
     });
     ema21Series.setData(
       ema21.map((value, idx) => ({
@@ -164,19 +162,12 @@ export default function ChartView() {
     );
     ema21SeriesRef.current = ema21Series;
 
-    // Add volume histogram series below the main chart
     const volumeSeries = chart.addHistogramSeries({
-      priceFormat: {
-        type: 'volume',
-      },
-      priceScaleId: '', // volume uses its own scale
-      scaleMargins: {
-        top: 0.8,
-        bottom: 0,
-      },
-      color: '#26a69a',
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'volume-scale',
       priceLineVisible: false,
       overlay: false,
+      color: '#26a69a',
     });
 
     volumeSeries.setData(
@@ -188,14 +179,13 @@ export default function ChartView() {
     );
     volumeSeriesRef.current = volumeSeries;
 
-    // Responsive resize handler
     function handleResize() {
       if (chartContainerRef.current) {
         chart.applyOptions({ width: chartContainerRef.current.clientWidth });
       }
     }
-    window.addEventListener('resize', handleResize);
 
+    window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
@@ -203,7 +193,6 @@ export default function ChartView() {
     };
   }, [ohlcvData]);
 
-  // Handle suggestion click
   const handleSelectSuggestion = (sym: string) => {
     setSymbol(sym);
     setSuggestions([]);
