@@ -5,6 +5,7 @@ import {
   CrosshairMode,
   CandlestickData,
   LineData,
+  HistogramData,
   UTCTimestamp,
 } from 'lightweight-charts';
 
@@ -12,6 +13,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// EMA calculation helper
 function calculateEMA(values: number[], period: number): number[] {
   const k = 2 / (period + 1);
   let emaArray: number[] = [];
@@ -31,24 +33,26 @@ export default function ChartView() {
   const [ohlcvData, setOhlcvData] = useState<any[]>([]);
 
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
-  const chartRef = useRef<any>(null);
+  const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
   const candleSeriesRef = useRef<any>(null);
   const ema10SeriesRef = useRef<any>(null);
   const ema21SeriesRef = useRef<any>(null);
   const volumeSeriesRef = useRef<any>(null);
 
-  // Fetch symbol suggestions as user types (case insensitive contains)
+  // Fetch symbol suggestions when user types (case-insensitive contains)
   useEffect(() => {
     if (!symbol) {
       setSuggestions([]);
       return;
     }
+
     async function fetchSymbols() {
       const { data, error } = await supabase
         .from('ohlcv_data')
         .select('symbol')
         .ilike('symbol', `%${symbol}%`)
         .limit(10);
+
       if (!error && data) {
         const uniqueSymbols = Array.from(new Set(data.map((d) => d.symbol)));
         setSuggestions(uniqueSymbols);
@@ -76,23 +80,22 @@ export default function ChartView() {
     fetchData();
   }, [symbol]);
 
-  // Setup chart when data changes
+  // Setup chart when OHLCV data changes
   useEffect(() => {
     if (!ohlcvData.length) return;
     if (!chartContainerRef.current) return;
 
-    // Clear previous chart if any
+    // Remove existing chart if any
     if (chartRef.current) {
       chartRef.current.remove();
       chartRef.current = null;
     }
 
-    // Create chart
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: 500,
       layout: {
-        background: '#ffffff',
+        background: { color: '#ffffff' },  // <-- Correct usage here
         textColor: '#333',
       },
       grid: {
@@ -111,11 +114,12 @@ export default function ChartView() {
         secondsVisible: false,
       },
     });
+
     chartRef.current = chart;
 
-    // Prepare candlestick data (time as date string)
+    // Prepare candlestick data - time as YYYY-MM-DD string (accepted by lightweight-charts)
     const candles: CandlestickData[] = ohlcvData.map((row) => ({
-      time: row.date, // YYYY-MM-DD string works fine
+      time: row.date,
       open: row.open,
       high: row.high,
       low: row.low,
@@ -129,12 +133,12 @@ export default function ChartView() {
     candleSeries.setData(candles);
     candleSeriesRef.current = candleSeries;
 
-    // Calculate EMAs on close prices
+    // Calculate EMA on close prices
     const closes = ohlcvData.map((row) => row.close);
     const ema10 = calculateEMA(closes, 10);
     const ema21 = calculateEMA(closes, 21);
 
-    // Add EMA10 line - green, thin width 2
+    // Add EMA10 line series - green, thin width 2
     const ema10Series = chart.addLineSeries({
       color: 'green',
       lineWidth: 2,
@@ -147,7 +151,7 @@ export default function ChartView() {
     );
     ema10SeriesRef.current = ema10Series;
 
-    // Add EMA21 line - red, thin width 2
+    // Add EMA21 line series - red, thin width 2
     const ema21Series = chart.addLineSeries({
       color: 'red',
       lineWidth: 2,
@@ -160,12 +164,12 @@ export default function ChartView() {
     );
     ema21SeriesRef.current = ema21Series;
 
-    // Add volume histogram series below chart
+    // Add volume histogram series below the main chart
     const volumeSeries = chart.addHistogramSeries({
       priceFormat: {
         type: 'volume',
       },
-      priceScaleId: '', // volume uses own scale
+      priceScaleId: '', // volume uses its own scale
       scaleMargins: {
         top: 0.8,
         bottom: 0,
@@ -174,16 +178,17 @@ export default function ChartView() {
       priceLineVisible: false,
       overlay: false,
     });
+
     volumeSeries.setData(
       ohlcvData.map((row) => ({
         time: row.date,
         value: row.volume,
-        color: row.close > row.open ? '#26a69a' : '#ef5350', // green/red bars
+        color: row.close > row.open ? '#26a69a' : '#ef5350',
       }))
     );
     volumeSeriesRef.current = volumeSeries;
 
-    // Resize handling
+    // Responsive resize handler
     function handleResize() {
       if (chartContainerRef.current) {
         chart.applyOptions({ width: chartContainerRef.current.clientWidth });
@@ -191,7 +196,6 @@ export default function ChartView() {
     }
     window.addEventListener('resize', handleResize);
 
-    // Cleanup on unmount or data change
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
@@ -199,7 +203,7 @@ export default function ChartView() {
     };
   }, [ohlcvData]);
 
-  // Handle selecting a suggestion
+  // Handle suggestion click
   const handleSelectSuggestion = (sym: string) => {
     setSymbol(sym);
     setSuggestions([]);
@@ -223,6 +227,7 @@ export default function ChartView() {
           marginBottom: 4,
           boxSizing: 'border-box',
         }}
+        autoComplete="off"
       />
       {suggestions.length > 0 && (
         <ul
