@@ -1,115 +1,132 @@
-import React, { useState, useEffect, useRef } from "react";
-import { createClient } from "@supabase/supabase-js";
+import React, { useState, useEffect, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import {
   createChart,
   CrosshairMode,
   CandlestickData,
+  LineStyle,
   HistogramData,
-  LineData,
-  Time,
-} from "lightweight-charts";
+  UTCTimestamp,
+} from 'lightweight-charts';
 
-// Ensure you have NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-function calculateEMA(values: number[], period: number): number[] {
-  const k = 2 / (period + 1);
-  const emaArray: number[] = [];
-  values.forEach((value, index) => {
-    if (index === 0) {
-      emaArray.push(value);
-    } else {
-      emaArray.push(value * k + emaArray[index - 1] * (1 - k));
-    }
-  });
-  return emaArray;
-}
-
-export default function ChartPage() {
-  const [symbol, setSymbol] = useState("");
+export default function ChartView() {
+  const [symbol, setSymbol] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [ohlcvData, setOhlcvData] = useState<any[]>([]);
-
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
-  const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
+  const chartRef = useRef<any>(null);
   const candleSeriesRef = useRef<any>(null);
-  const ema10SeriesRef = useRef<any>(null);
-  const ema21SeriesRef = useRef<any>(null);
+  const ema10Ref = useRef<any>(null);
+  const ema21Ref = useRef<any>(null);
   const volumeSeriesRef = useRef<any>(null);
 
-  // Symbol search with partial matching & suggestions
+  // Fetch symbol suggestions as user types (auto-suggest)
   useEffect(() => {
-    if (!symbol) {
+    if (symbol.length < 1) {
       setSuggestions([]);
       return;
     }
-    const fetchSymbols = async () => {
+
+    const fetchSuggestions = async () => {
       const { data, error } = await supabase
-        .from("ohlcv_data")
-        .select("symbol")
-        .ilike("symbol", `%${symbol}%`)
-        .limit(10);
+        .from('ohlcv_data')
+        .select('symbol')
+        .ilike('symbol', `${symbol.toUpperCase()}%`)
+        .limit(10)
+        .order('symbol', { ascending: true });
+
       if (!error && data) {
-        const uniqueSymbols = Array.from(new Set(data.map((d) => d.symbol)));
+        const uniqueSymbols = [...new Set(data.map((d) => d.symbol))];
         setSuggestions(uniqueSymbols);
       }
     };
-    fetchSymbols();
+
+    fetchSuggestions();
   }, [symbol]);
 
-  // Fetch OHLCV data for selected symbol
+  // Fetch OHLCV data when symbol is selected/changed
   useEffect(() => {
-    if (!symbol) return;
+    if (!symbol) {
+      setOhlcvData([]);
+      return;
+    }
+
     const fetchData = async () => {
       const { data, error } = await supabase
-        .from("ohlcv_data")
-        .select("date, open, high, low, close, volume")
-        .eq("symbol", symbol)
-        .order("date", { ascending: true })
+        .from('ohlcv_data')
+        .select('*')
+        .eq('symbol', symbol)
+        .order('date', { ascending: true })
         .limit(1000);
+
       if (!error && data) {
         setOhlcvData(data);
+
+        // Log first row to console for debugging
+        if (data.length > 0) {
+          console.log('First OHLCV row:', data[0]);
+        }
+      } else {
+        setOhlcvData([]);
       }
     };
+
     fetchData();
   }, [symbol]);
 
-  // Create and update chart when OHLCV data changes
-  useEffect(() => {
-    if (!ohlcvData.length || !chartContainerRef.current) return;
+  // Calculate EMA helper
+  function calculateEMA(data: number[], period: number): number[] {
+    const k = 2 / (period + 1);
+    const emaArray: number[] = [];
+    data.forEach((price, index) => {
+      if (index === 0) {
+        emaArray.push(price);
+      } else {
+        emaArray.push(price * k + emaArray[index - 1] * (1 - k));
+      }
+    });
+    return emaArray;
+  }
 
-    // Remove old chart if exists
+  // Create or update chart when OHLCV data changes
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+    if (!ohlcvData.length) return;
+
+    // Dispose old chart if exists
     if (chartRef.current) {
       chartRef.current.remove();
       chartRef.current = null;
     }
 
-    // Create chart with layout, grid, crosshair options
+    // Create chart
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: 500,
       layout: {
-        background: { color: "#ffffff" },
-        textColor: "#333",
+        background: { type: 'solid', color: '#ffffff' }, // corrected type
+        textColor: '#333',
       },
       grid: {
-        vertLines: { color: "#eee" },
-        horzLines: { color: "#eee" },
+        vertLines: {
+          color: '#eee',
+        },
+        horzLines: {
+          color: '#eee',
+        },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
       },
       rightPriceScale: {
-        borderColor: "#ccc",
-        scaleMargins: {
-          top: 0,
-          bottom: 0.2, // leave space for volume scale
-        },
+        borderColor: '#ccc',
       },
       timeScale: {
-        borderColor: "#ccc",
+        borderColor: '#ccc',
         timeVisible: true,
         secondsVisible: false,
       },
@@ -117,159 +134,150 @@ export default function ChartPage() {
 
     chartRef.current = chart;
 
-    // Candlestick series (attached to default right price scale)
-    const candleSeries = chart.addCandlestickSeries();
-    candleSeriesRef.current = candleSeries;
-
-    // Format data for candlesticks: convert date strings to 'yyyy-mm-dd' or unix timestamp (seconds)
-    // Lightweight-charts supports string 'yyyy-mm-dd' dates for Time
+    // Prepare candlestick data (convert date string to UTCTimestamp = seconds)
     const candles: CandlestickData[] = ohlcvData.map((row) => ({
-      time: row.date, // assuming row.date is 'YYYY-MM-DD' string
+      time: Math.floor(new Date(row.date).getTime() / 1000) as UTCTimestamp,
       open: row.open,
       high: row.high,
       low: row.low,
       close: row.close,
     }));
-    candleSeries.setData(candles);
 
-    // Calculate EMAs on close prices
-    const closes = ohlcvData.map((row) => row.close);
-    const ema10 = calculateEMA(closes, 10);
-    const ema21 = calculateEMA(closes, 21);
-
-    // 10 EMA - green, thin line
-    const ema10Series = chart.addLineSeries({
-      color: "green",
-      lineWidth: 1,
-      priceScaleId: "right",
-    });
-    ema10Series.setData(
-      ema10.map((val, idx) => ({
-        time: ohlcvData[idx].date,
-        value: val,
-      }))
-    );
-    ema10SeriesRef.current = ema10Series;
-
-    // 21 EMA - red, thin line
-    const ema21Series = chart.addLineSeries({
-      color: "red",
-      lineWidth: 1,
-      priceScaleId: "right",
-    });
-    ema21Series.setData(
-      ema21.map((val, idx) => ({
-        time: ohlcvData[idx].date,
-        value: val,
-      }))
-    );
-    ema21SeriesRef.current = ema21Series;
-
-    // Add volume series on separate price scale on left side
-    // Create a new price scale id: "volume"
-    chart.applyOptions({
-      leftPriceScale: {
-        visible: true,
-        borderColor: "#ccc",
-        scaleMargins: {
-          top: 0.8,
-          bottom: 0,
-        },
-      },
-    });
-
-    const volumeSeries = chart.addHistogramSeries({
-      priceFormat: {
-        type: "volume",
-      },
-      priceScaleId: "left",
+    // Set candlestick series
+    const candleSeries = chart.addCandlestickSeries({
       priceLineVisible: false,
-      overlay: false,
-      color: "#26a69a",
+    });
+    candleSeries.setData(candles);
+    candleSeriesRef.current = candleSeries;
+
+    // Calculate EMAs on close price
+    const closePrices = ohlcvData.map((d) => d.close);
+    const ema10 = calculateEMA(closePrices, 10);
+    const ema21 = calculateEMA(closePrices, 21);
+
+    // Map EMAs to line series data format
+    const ema10Data = ema10.map((value, idx) => ({
+      time: Math.floor(new Date(ohlcvData[idx].date).getTime() / 1000) as UTCTimestamp,
+      value: value,
+    }));
+    const ema21Data = ema21.map((value, idx) => ({
+      time: Math.floor(new Date(ohlcvData[idx].date).getTime() / 1000) as UTCTimestamp,
+      value: value,
+    }));
+
+    // Add EMA line series: 10 EMA (green, thin)
+    const ema10Series = chart.addLineSeries({
+      color: 'green',
+      lineWidth: 1,
+    });
+    ema10Series.setData(ema10Data);
+    ema10Ref.current = ema10Series;
+
+    // Add EMA line series: 21 EMA (red, thin)
+    const ema21Series = chart.addLineSeries({
+      color: 'red',
+      lineWidth: 1,
+    });
+    ema21Series.setData(ema21Data);
+    ema21Ref.current = ema21Series;
+
+    // Add volume histogram series (bottom)
+    const volumeSeries = chart.addHistogramSeries({
+      color: '#26a69a',
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: 'volume',
+      scaleMargins: {
+        top: 0.8,
+        bottom: 0,
+      },
     });
 
-    volumeSeries.setData(
-      ohlcvData.map((row) => ({
-        time: row.date,
-        value: row.volume,
-        color: row.close > row.open ? "#26a69a" : "#ef5350",
-      }))
-    );
+    // Map volume data with time
+    const volumeData: HistogramData[] = ohlcvData.map((row) => ({
+      time: Math.floor(new Date(row.date).getTime() / 1000) as UTCTimestamp,
+      value: row.volume,
+      color: row.close > row.open ? '#26a69a' : '#ef5350', // green if up, red if down
+    }));
 
+    volumeSeries.setData(volumeData);
     volumeSeriesRef.current = volumeSeries;
 
-    // Responsive chart width
+    // Resize chart on container resize
     function handleResize() {
-      if (chartContainerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({
+      if (chartContainerRef.current) {
+        chart.applyOptions({
           width: chartContainerRef.current.clientWidth,
         });
       }
     }
-    window.addEventListener("resize", handleResize);
+    window.addEventListener('resize', handleResize);
+
+    // Cleanup on unmount
     return () => {
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener('resize', handleResize);
       chart.remove();
       chartRef.current = null;
     };
   }, [ohlcvData]);
 
-  // User selects symbol from suggestions
-  function handleSelectSuggestion(sym: string) {
+  // Handle suggestion click to set symbol
+  const handleSuggestionClick = (sym: string) => {
     setSymbol(sym);
     setSuggestions([]);
-  }
+  };
 
   return (
-    <div style={{ maxWidth: 900, margin: "20px auto" }}>
-      <label htmlFor="symbol-input" style={{ fontWeight: "bold" }}>
-        Search Symbol:
-      </label>
+    <div style={{ maxWidth: 900, margin: 'auto', padding: 20 }}>
+      <h2>Stock Chart</h2>
+
       <input
-        id="symbol-input"
         type="text"
-        placeholder="Type symbol here..."
+        placeholder="Type symbol e.g. INFY"
         value={symbol}
         onChange={(e) => setSymbol(e.target.value.toUpperCase())}
         style={{
-          width: "100%",
-          padding: "8px 12px",
-          fontSize: 16,
-          marginBottom: 4,
-          boxSizing: "border-box",
+          width: '100%',
+          padding: '8px',
+          fontSize: '16px',
+          boxSizing: 'border-box',
         }}
-        autoComplete="off"
       />
+
+      {/* Suggestions dropdown */}
       {suggestions.length > 0 && (
         <ul
           style={{
-            listStyle: "none",
-            margin: 0,
-            padding: "4px 0",
-            border: "1px solid #ccc",
-            maxHeight: 150,
-            overflowY: "auto",
-            cursor: "pointer",
+            border: '1px solid #ccc',
+            borderTop: 'none',
+            maxHeight: 200,
+            overflowY: 'auto',
+            marginTop: 0,
+            paddingLeft: 0,
+            listStyleType: 'none',
           }}
         >
-          {suggestions.map((s) => (
+          {suggestions.map((sym) => (
             <li
-              key={s}
-              onClick={() => handleSelectSuggestion(s)}
+              key={sym}
+              onClick={() => handleSuggestionClick(sym)}
               style={{
-                padding: "6px 10px",
-                borderBottom: "1px solid #eee",
+                padding: '8px',
+                cursor: 'pointer',
+                backgroundColor: sym === symbol ? '#eee' : 'white',
               }}
             >
-              {s}
+              {sym}
             </li>
           ))}
         </ul>
       )}
+
       <div
         ref={chartContainerRef}
-        style={{ width: "100%", height: 500, marginTop: 12 }}
-      />
+        style={{ marginTop: 20, width: '100%', height: 500 }}
+      ></div>
     </div>
   );
 }
