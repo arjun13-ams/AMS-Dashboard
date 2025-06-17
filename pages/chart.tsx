@@ -2,11 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   createChart,
   CrosshairMode,
-  LineStyle,
   CandlestickData,
   IChartApi,
   ISeriesApi,
-  PriceScaleMode,
+  LineStyle,
 } from 'lightweight-charts';
 import { createClient } from '@supabase/supabase-js';
 
@@ -113,7 +112,7 @@ export default function ChartView() {
       width: chartContainerRef.current.clientWidth,
       height: 500,
       layout: {
-        background: '#ffffff',
+        background: { color: '#ffffff' }, // Correct type: object with color property
         textColor: '#333',
       },
       grid: {
@@ -160,12 +159,12 @@ export default function ChartView() {
       color: row.close >= row.open ? 'rgba(0,150,136,0.5)' : 'rgba(255,82,82,0.5)',
     }));
 
-    // Add volume histogram series
+    // Add volume histogram series below main chart
     const volumeSeries = chart.addHistogramSeries({
       priceFormat: {
         type: 'volume',
       },
-      priceScaleId: '',
+      priceScaleId: '', // separate scale below main chart
       scaleMargins: {
         top: 0.8,
         bottom: 0,
@@ -182,7 +181,7 @@ export default function ChartView() {
     // Add EMA 10 series (green, thin)
     const ema10Series = chart.addLineSeries({
       color: 'green',
-      lineWidth: 1, // thin line
+      lineWidth: 1,
     });
     ema10Series.setData(
       ema10.map((value, idx) => ({
@@ -195,7 +194,7 @@ export default function ChartView() {
     // Add EMA 21 series (red, thin)
     const ema21Series = chart.addLineSeries({
       color: 'red',
-      lineWidth: 1, // thin line
+      lineWidth: 1,
     });
     ema21Series.setData(
       ema21.map((value, idx) => ({
@@ -205,9 +204,9 @@ export default function ChartView() {
     );
     ema21SeriesRef.current = ema21Series;
 
-    // Add tooltip functionality on crosshair move
+    // Tooltip element for OHLC + volume
     const toolTip = document.createElement('div');
-    toolTip.style = `
+    toolTip.style.cssText = `
       position: absolute;
       display: none;
       padding: 8px;
@@ -284,7 +283,7 @@ export default function ChartView() {
   }, [ohlcvData, selectedSymbol]);
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 20, position: 'relative' }}>
       <input
         type="text"
         placeholder="Search symbol"
@@ -332,8 +331,8 @@ export default function ChartView() {
 
       <div
         ref={chartContainerRef}
-        style={{ marginTop: 40, width: '100%', maxWidth: 900, height: 500, position: 'relative' }}
-      ></div>
+        style={{ marginTop: 40, width: '100%', maxWidth: 900, height: 500 }}
+      />
     </div>
   );
 }
