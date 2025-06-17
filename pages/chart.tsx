@@ -3,11 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 import {
   createChart,
   CrosshairMode,
-  LineStyle,
   CandlestickData,
-  IChartApi,
-  ISeriesApi,
   HistogramData,
+  ISeriesApi,
 } from 'lightweight-charts';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -15,110 +13,88 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function ChartView() {
-  const [symbolInput, setSymbolInput] = useState('');
+  const [symbol, setSymbol] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [ohlcvData, setOhlcvData] = useState<CandlestickData[]>([]);
+  const [ohlcvData, setOhlcvData] = useState<any[]>([]);
+
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
+  const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const ema10SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const ema21SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
 
-  // Fetch symbol suggestions for autocomplete
+  // Fetch symbol suggestions as user types
   useEffect(() => {
-    if (!symbolInput) {
+    if (!symbol || symbol.length < 1) {
       setSuggestions([]);
       return;
     }
 
-    const fetchSuggestions = async () => {
+    async function fetchSymbols() {
       const { data, error } = await supabase
         .from('ohlcv_data')
         .select('symbol')
-        .ilike('symbol', `%${symbolInput}%`)
+        .ilike('symbol', `%${symbol}%`)
         .limit(10);
 
       if (!error && data) {
-        // Extract unique symbols
+        // Get unique symbols
         const uniqueSymbols = Array.from(new Set(data.map((d) => d.symbol)));
         setSuggestions(uniqueSymbols);
       }
-    };
-
-    fetchSuggestions();
-  }, [symbolInput]);
-
-  // Fetch OHLCV data when symbol is selected
-  useEffect(() => {
-    if (!symbolInput) {
-      setOhlcvData([]);
-      return;
     }
+    fetchSymbols();
+  }, [symbol]);
 
-    const fetchData = async () => {
+  // Fetch OHLCV data when a symbol is selected (exact match)
+  useEffect(() => {
+    if (!symbol) return;
+
+    async function fetchData() {
       const { data, error } = await supabase
         .from('ohlcv_data')
-        .select('date, open, high, low, close, volume')
-        .eq('symbol', symbolInput)
+        .select('*')
+        .eq('symbol', symbol)
         .order('date', { ascending: true })
         .limit(1000);
 
-      if (!error && data) {
-        // Map data to Lightweight Charts format, use date string as time
-        const candles: CandlestickData[] = data.map((row) => ({
-          time: row.date,
-          open: row.open,
-          high: row.high,
-          low: row.low,
-          close: row.close,
-        }));
-
-        setOhlcvData(candles);
-      } else {
-        setOhlcvData([]);
-      }
-    };
+      if (!error && data) setOhlcvData(data);
+    }
 
     fetchData();
-  }, [symbolInput]);
+  }, [symbol]);
 
   // Calculate EMA helper
-  const calculateEMA = (data: CandlestickData[], period: number): { time: string; value: number }[] => {
+  function calculateEMA(data: number[], period: number): number[] {
     const k = 2 / (period + 1);
-    let emaArray: { time: string; value: number }[] = [];
-
-    let prevEma: number | null = null;
-    data.forEach((point, idx) => {
-      const close = point.close;
-      if (idx === 0) {
-        prevEma = close;
-      } else if (prevEma !== null) {
-        prevEma = close * k + prevEma * (1 - k);
-      }
-      if (prevEma !== null) {
-        emaArray.push({ time: point.time as string, value: parseFloat(prevEma.toFixed(2)) });
+    let emaArray: number[] = [];
+    data.forEach((price, index) => {
+      if (index === 0) {
+        emaArray.push(price);
+      } else {
+        emaArray.push(price * k + emaArray[index - 1] * (1 - k));
       }
     });
-
     return emaArray;
-  };
+  }
 
-  // Initialize chart
+  // Render chart on ohlcvData update
   useEffect(() => {
-    if (!chartContainerRef.current) return;
+    if (!ohlcvData.length || !chartContainerRef.current) return;
 
-    // Clean up previous chart if exists
+    // Clean up previous chart instance
     if (chartRef.current) {
       chartRef.current.remove();
       chartRef.current = null;
     }
 
+    // Create chart
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: 500,
       layout: {
-        backgroundColor: '#ffffff',
+        background: { type: 'solid', color: '#ffffff' },
         textColor: '#333',
       },
       grid: {
@@ -144,150 +120,140 @@ export default function ChartView() {
 
     chartRef.current = chart;
 
-    // Candlestick series
+    // Prepare candlestick data
+    const candles: CandlestickData[] = ohlcvData.map((row) => ({
+      time: Math.floor(new Date(row.date).getTime() / 1000), // unix timestamp in seconds
+      open: row.open,
+      high: row.high,
+      low: row.low,
+      close: row.close,
+    }));
+
+    // Add candlestick series
     const candleSeries = chart.addCandlestickSeries();
+    candleSeries.setData(candles);
     candleSeriesRef.current = candleSeries;
 
-    // EMA 10 - green, width 2
+    // Calculate EMAs on close prices
+    const closes = ohlcvData.map((row) => row.close);
+    const ema10 = calculateEMA(closes, 10);
+    const ema21 = calculateEMA(closes, 21);
+
+    // Map EMAs to chart data format
+    const ema10Data = ema10.map((value, idx) => ({
+      time: Math.floor(new Date(ohlcvData[idx].date).getTime() / 1000),
+      value,
+    }));
+
+    const ema21Data = ema21.map((value, idx) => ({
+      time: Math.floor(new Date(ohlcvData[idx].date).getTime() / 1000),
+      value,
+    }));
+
+    // Add EMA lines
     const ema10Series = chart.addLineSeries({
       color: 'green',
-      lineWidth: 2,
-      lineStyle: LineStyle.Solid,
+      lineWidth: 1, // thin line
     });
+    ema10Series.setData(ema10Data);
     ema10SeriesRef.current = ema10Series;
 
-    // EMA 21 - red, width 2
     const ema21Series = chart.addLineSeries({
       color: 'red',
-      lineWidth: 2,
-      lineStyle: LineStyle.Solid,
+      lineWidth: 1, // thin line
     });
+    ema21Series.setData(ema21Data);
     ema21SeriesRef.current = ema21Series;
 
-    // Volume series (Histogram)
+    // Add volume histogram series below chart
     const volumeSeries = chart.addHistogramSeries({
-      priceScaleId: '',
-      scaleMargins: {
-        top: 0.8,
-        bottom: 0,
-      },
       color: '#26a69a',
       priceFormat: {
         type: 'volume',
       },
+      scaleMargins: {
+        top: 0.8,
+        bottom: 0,
+      },
     });
+
+    const volumeData: HistogramData[] = ohlcvData.map((row) => ({
+      time: Math.floor(new Date(row.date).getTime() / 1000),
+      value: row.volume,
+      color: row.close > row.open ? 'rgba(0, 150, 136, 0.8)' : 'rgba(255, 82, 82, 0.8)',
+    }));
+
+    volumeSeries.setData(volumeData);
     volumeSeriesRef.current = volumeSeries;
 
-    // Handle resize
-    const handleResize = () => {
+    // Resize handler
+    function handleResize() {
       if (chartContainerRef.current && chartRef.current) {
         chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth });
       }
-    };
-
+    }
     window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (chartRef.current) {
-        chartRef.current.remove();
-        chartRef.current = null;
-      }
+      chart.remove();
+      chartRef.current = null;
     };
-  }, []);
-
-  // Update chart data
-  useEffect(() => {
-    if (!ohlcvData.length) {
-      candleSeriesRef.current?.setData([]);
-      ema10SeriesRef.current?.setData([]);
-      ema21SeriesRef.current?.setData([]);
-      volumeSeriesRef.current?.setData([]);
-      return;
-    }
-
-    candleSeriesRef.current?.setData(ohlcvData);
-
-    // Calculate EMAs
-    const ema10 = calculateEMA(ohlcvData, 10);
-    const ema21 = calculateEMA(ohlcvData, 21);
-
-    ema10SeriesRef.current?.setData(ema10);
-    ema21SeriesRef.current?.setData(ema21);
-
-    // Volume data for histogram series
-    const volumeData: HistogramData[] = ohlcvData.map((row, idx) => {
-      const prevClose = idx > 0 ? ohlcvData[idx - 1].close : row.close;
-      return {
-        time: row.time as string,
-        value: row.close > prevClose ? row.volume : -row.volume,
-        color: row.close > prevClose ? 'rgba(0,150,136,0.8)' : 'rgba(255,82,82,0.8)',
-      };
-    });
-    volumeSeriesRef.current?.setData(volumeData);
   }, [ohlcvData]);
 
-  // Symbol input handlers
-  const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSymbolInput(e.target.value.toUpperCase());
-  };
-
-  const onSuggestionClick = (symbol: string) => {
-    setSymbolInput(symbol);
+  // Handle symbol selection from suggestions
+  function onSelectSuggestion(sym: string) {
+    setSymbol(sym);
     setSuggestions([]);
-  };
+  }
 
   return (
-    <div style={{ maxWidth: 900, margin: '20px auto' }}>
-      <label htmlFor="symbol-input" style={{ fontWeight: 'bold' }}>
+    <div style={{ maxWidth: 900, margin: 'auto', padding: 20 }}>
+      <label htmlFor="symbol-search" style={{ fontWeight: 'bold' }}>
         Search Symbol:
       </label>
       <input
-        id="symbol-input"
+        id="symbol-search"
         type="text"
-        value={symbolInput}
-        onChange={onInputChange}
-        style={{
-          width: '100%',
-          padding: '8px 12px',
-          marginBottom: 0,
-          fontSize: 16,
-          boxSizing: 'border-box',
-        }}
+        placeholder="Type symbol..."
+        value={symbol}
+        onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+        style={{ width: '100%', padding: '8px', fontSize: 16, boxSizing: 'border-box' }}
         autoComplete="off"
       />
+
       {suggestions.length > 0 && (
         <ul
           style={{
-            listStyleType: 'none',
-            paddingLeft: 0,
-            marginTop: 0,
+            border: '1px solid #ccc',
             maxHeight: 150,
             overflowY: 'auto',
-            border: '1px solid #ccc',
-            borderTop: 'none',
+            marginTop: 0,
+            paddingLeft: 0,
+            listStyleType: 'none',
             cursor: 'pointer',
-            background: 'white',
-            position: 'absolute',
-            width: 'calc(100% - 24px)', // input width minus padding
-            zIndex: 10,
           }}
         >
-          {suggestions.map((sym) => (
+          {suggestions.map((s) => (
             <li
-              key={sym}
-              onClick={() => onSuggestionClick(sym)}
-              style={{ padding: '8px 12px', borderBottom: '1px solid #eee' }}
+              key={s}
+              onClick={() => onSelectSuggestion(s)}
+              style={{
+                padding: 8,
+                borderBottom: '1px solid #eee',
+                backgroundColor: s === symbol ? '#ddd' : '#fff',
+              }}
             >
-              {sym}
+              {s}
             </li>
           ))}
         </ul>
       )}
+
       <div
         ref={chartContainerRef}
-        style={{ marginTop: suggestions.length > 0 ? 160 : 20 }}
-      />
+        style={{ marginTop: 20, position: 'relative', height: 520 }}
+      ></div>
     </div>
   );
 }
