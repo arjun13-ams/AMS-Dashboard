@@ -34,27 +34,23 @@ const ChartPage: React.FC = () => {
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   // Fetch sample data or fetch from API here
-  // For demo, simulate with sample data:
   useEffect(() => {
     async function fetchData() {
       // Replace with your API endpoint or supabase fetch call
       const res = await fetch("/api/ohlcv?symbol=NSE:RELIANCE");
       const data: OHLCV[] = await res.json();
       setOhlcvData(data);
-
-      // Set initial symbol for demo
       setSelectedSymbol("RELIANCE");
     }
     fetchData();
   }, []);
 
-  // Update suggestions as user types (case-insensitive substring match)
+  // Update suggestions as user types
   useEffect(() => {
     if (!symbolInput) {
       setSuggestions([]);
       return;
     }
-    // Collect unique symbols from loaded data
     const uniqueSymbols = Array.from(new Set(ohlcvData.map((d) => d.symbol)));
     const filtered = uniqueSymbols.filter((sym) =>
       sym.toLowerCase().includes(symbolInput.toLowerCase())
@@ -62,13 +58,12 @@ const ChartPage: React.FC = () => {
     setSuggestions(filtered.slice(0, 10));
   }, [symbolInput, ohlcvData]);
 
-  // Calculate EMA helper
   function calculateEMA(data: number[], period: number): number[] {
     const k = 2 / (period + 1);
     let emaArray: number[] = [];
     data.forEach((price, idx) => {
       if (idx === 0) {
-        emaArray.push(price); // first EMA = first price
+        emaArray.push(price);
       } else {
         const ema = price * k + emaArray[idx - 1] * (1 - k);
         emaArray.push(ema);
@@ -81,7 +76,6 @@ const ChartPage: React.FC = () => {
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    // Cleanup previous chart if any
     if (chartRef.current) {
       chartRef.current.remove();
       chartRef.current = null;
@@ -91,7 +85,7 @@ const ChartPage: React.FC = () => {
       width: chartContainerRef.current.clientWidth,
       height: 500,
       layout: {
-        background: { color: "#ffffff" }, // proper type
+        background: { color: "#ffffff" },
         textColor: "#333",
       },
       grid: {
@@ -138,7 +132,7 @@ const ChartPage: React.FC = () => {
       priceScaleId: "left",
       priceLineVisible: false,
       color: "#26a69a",
-      overlay: false,
+      // overlay removed because not a valid property in v4.1.1
     });
 
     return () => {
@@ -154,10 +148,8 @@ const ChartPage: React.FC = () => {
     if (!selectedSymbol) return;
 
     const dataForSymbol = ohlcvData.filter((d) => d.symbol === selectedSymbol);
-
     if (dataForSymbol.length === 0) return;
 
-    // Map data to candlestick format with time as UNIX timestamp (seconds)
     const candles: CandlestickData[] = dataForSymbol.map((row) => ({
       time: Math.floor(new Date(row.date).getTime() / 1000),
       open: row.open,
@@ -165,15 +157,12 @@ const ChartPage: React.FC = () => {
       low: row.low,
       close: row.close,
     }));
-
     candleSeriesRef.current?.setData(candles);
 
-    // Calculate EMAs on close prices
     const closePrices = dataForSymbol.map((d) => d.close);
     const ema10 = calculateEMA(closePrices, 10);
     const ema21 = calculateEMA(closePrices, 21);
 
-    // Map EMA data to LineData format with matching timestamps
     const ema10Data: LineData[] = ema10.map((value, idx) => ({
       time: Math.floor(new Date(dataForSymbol[idx].date).getTime() / 1000),
       value,
@@ -187,27 +176,22 @@ const ChartPage: React.FC = () => {
     ema10SeriesRef.current?.setData(ema10Data);
     ema21SeriesRef.current?.setData(ema21Data);
 
-    // Volume data for histogram
     const volumeData: HistogramData[] = dataForSymbol.map((row) => ({
       time: Math.floor(new Date(row.date).getTime() / 1000),
       value: row.volume,
       color: row.close >= row.open ? "#26a69a" : "#ef5350",
     }));
-
     volumeSeriesRef.current?.setData(volumeData);
 
-    // Fit chart to data
     chartRef.current?.timeScale().fitContent();
   }, [selectedSymbol, ohlcvData]);
 
-  // Handle suggestion click
   const onSuggestionClick = (sym: string) => {
     setSelectedSymbol(sym);
     setSymbolInput(sym);
     setSuggestions([]);
   };
 
-  // Tooltip logic
   const tooltipRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -233,7 +217,7 @@ const ChartPage: React.FC = () => {
         return;
       }
 
-      const date = new Date(param.time as number * 1000);
+      const date = new Date((param.time as number) * 1000);
       const dateStr = date.toLocaleDateString();
 
       tooltipRef.current.style.display = "block";
@@ -258,16 +242,15 @@ const ChartPage: React.FC = () => {
     };
 
     chartRef.current.subscribeCrosshairMove(handleCrosshairMove);
-
     return () => {
       chartRef.current?.unsubscribeCrosshairMove(handleCrosshairMove);
     };
   }, []);
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 20, position: "relative" }}>
       <h2>Stock Chart with Momentum Indicators</h2>
-      <div style={{ marginBottom: 10 }}>
+      <div style={{ marginBottom: 10, position: "relative" }}>
         <input
           type="text"
           value={symbolInput}
