@@ -1,87 +1,64 @@
-// pages/chart.tsx
-
 import React, { useEffect, useRef, useState } from 'react';
 import {
   createChart,
   CrosshairMode,
   CandlestickData,
-  LineStyle,
-  UTCTimestamp,
+  LineData,
   HistogramData,
 } from 'lightweight-charts';
 
-interface OHLCV {
-  date: string; // ISO date string
+type OHLCV = {
+  date: string; // ISO string date
   open: number;
   high: number;
   low: number;
   close: number;
   volume: number;
-}
+};
 
-interface Props {
+interface ChartProps {
   ohlcvData: OHLCV[];
-  symbol: string;
+  width?: number;
+  height?: number;
 }
 
-const ChartPage: React.FC<Props> = ({ ohlcvData, symbol }) => {
-  const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
-  const candleSeriesRef = useRef<ReturnType<
-    ReturnType<typeof createChart>['addCandlestickSeries']
-  > | null>(null);
-  const ema10Ref = useRef<ReturnType<
-    ReturnType<typeof createChart>['addLineSeries']
-  > | null>(null);
-  const ema21Ref = useRef<ReturnType<
-    ReturnType<typeof createChart>['addLineSeries']
-  > | null>(null);
-  const volumeSeriesRef = useRef<ReturnType<
-    ReturnType<typeof createChart>['addHistogramSeries']
-  > | null>(null);
+const Chart: React.FC<ChartProps> = ({ ohlcvData, width = 900, height = 500 }) => {
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<any>(null);
+  const candleSeriesRef = useRef<any>(null);
+  const ema10SeriesRef = useRef<any>(null);
+  const ema21SeriesRef = useRef<any>(null);
+  const volumeSeriesRef = useRef<any>(null);
 
-  // Utility: Calculate EMA
-  const calculateEMA = (data: number[], period: number): (number | null)[] => {
-    const k = 2 / (period + 1);
-    const emaArray: (number | null)[] = [];
-    let emaPrev: number | null = null;
-    data.forEach((price, idx) => {
-      if (idx === 0) {
-        emaArray.push(price); // seed with first price
-        emaPrev = price;
-      } else if (emaPrev !== null) {
-        const ema = price * k + emaPrev * (1 - k);
-        emaArray.push(ema);
-        emaPrev = ema;
-      } else {
-        emaArray.push(null);
-      }
-    });
-    return emaArray;
-  };
+  // Tooltip state
+  const [tooltip, setTooltip] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    data?: {
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+      volume: number;
+      time: string;
+    };
+  }>({ visible: false, x: 0, y: 0 });
 
   useEffect(() => {
-    if (!ohlcvData || ohlcvData.length === 0) return;
-
-    if (chartRef.current) {
-      chartRef.current.remove();
-      chartRef.current = null;
-    }
+    if (!chartContainerRef.current || ohlcvData.length === 0) return;
 
     // Create chart
-    const chart = createChart('chart-container', {
-      width: 900,
-      height: 500,
+    const chart = createChart(chartContainerRef.current, {
+      width,
+      height,
       layout: {
-        background: { type: 'solid', color: '#ffffff' },
+        background: { color: '#ffffff' },
         textColor: '#333',
       },
       grid: {
-        vertLines: {
-          color: '#eee',
-        },
-        horzLines: {
-          color: '#eee',
-        },
+        vertLines: { color: '#eee' },
+        horzLines: { color: '#eee' },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
@@ -91,180 +68,153 @@ const ChartPage: React.FC<Props> = ({ ohlcvData, symbol }) => {
       },
       timeScale: {
         borderColor: '#ccc',
+        timeVisible: true,
+        secondsVisible: false,
       },
     });
-
     chartRef.current = chart;
 
-    // Prepare candlestick data
-    // Note: lightweight-charts expects time as UTCTimestamp = number (unix seconds)
+    // Candlestick series
+    const candleSeries = chart.addCandlestickSeries();
+    candleSeriesRef.current = candleSeries;
+
+    // Convert data for candlestick
     const candles: CandlestickData[] = ohlcvData.map((row) => ({
-      time: Math.floor(new Date(row.date).getTime() / 1000) as UTCTimestamp,
+      time: Math.floor(new Date(row.date).getTime() / 1000),
       open: row.open,
       high: row.high,
       low: row.low,
       close: row.close,
     }));
 
-    // Add candlestick series
-    const candleSeries = chart.addCandlestickSeries({
-      priceLineVisible: false,
-      upColor: '#4caf50',
-      downColor: '#f44336',
-      borderVisible: false,
-      wickUpColor: '#4caf50',
-      wickDownColor: '#f44336',
-    });
     candleSeries.setData(candles);
-    candleSeriesRef.current = candleSeries;
 
-    // Calculate EMAs (close prices)
-    const closePrices = ohlcvData.map((row) => row.close);
-    const ema10 = calculateEMA(closePrices, 10);
-    const ema21 = calculateEMA(closePrices, 21);
+    // EMA calculation helper
+    function calculateEMA(data: CandlestickData[], period: number): LineData[] {
+      const k = 2 / (period + 1);
+      const emaArray: LineData[] = [];
+      let emaPrev: number | null = null;
 
-    // Prepare EMA line data (skip nulls)
-    const ema10Data = ema10
-      .map((val, idx) =>
-        val !== null
-          ? { time: Math.floor(new Date(ohlcvData[idx].date).getTime() / 1000) as UTCTimestamp, value: val }
-          : null
-      )
-      .filter((x): x is { time: UTCTimestamp; value: number } => x !== null);
+      data.forEach((point) => {
+        const close = point.close;
+        if (emaPrev === null) {
+          emaPrev = close;
+        } else {
+          emaPrev = close * k + emaPrev * (1 - k);
+        }
+        emaArray.push({ time: point.time, value: emaPrev });
+      });
 
-    const ema21Data = ema21
-      .map((val, idx) =>
-        val !== null
-          ? { time: Math.floor(new Date(ohlcvData[idx].date).getTime() / 1000) as UTCTimestamp, value: val }
-          : null
-      )
-      .filter((x): x is { time: UTCTimestamp; value: number } => x !== null);
+      return emaArray;
+    }
 
-    // Add EMA10 series (green, thin)
-    const ema10Series = chart.addLineSeries({
-      color: 'green',
-      lineWidth: 1,
-      lineStyle: LineStyle.Solid,
-    });
-    ema10Series.setData(ema10Data);
-    ema10Ref.current = ema10Series;
+    // Calculate EMAs
+    const ema10 = calculateEMA(candles, 10);
+    const ema21 = calculateEMA(candles, 21);
 
-    // Add EMA21 series (red, thin)
-    const ema21Series = chart.addLineSeries({
-      color: 'red',
-      lineWidth: 1,
-      lineStyle: LineStyle.Solid,
-    });
-    ema21Series.setData(ema21Data);
-    ema21Ref.current = ema21Series;
+    // Add EMA line series
+    const ema10Series = chart.addLineSeries({ color: 'green', lineWidth: 1 });
+    const ema21Series = chart.addLineSeries({ color: 'red', lineWidth: 1 });
 
-    // Add volume histogram
-    const volumeData: HistogramData[] = ohlcvData.map((row) => ({
-      time: Math.floor(new Date(row.date).getTime() / 1000) as UTCTimestamp,
-      value: row.volume,
-      color: row.close >= row.open ? 'rgba(76, 175, 80, 0.5)' : 'rgba(244, 67, 54, 0.5)', // green or red transparent
-    }));
+    ema10Series.setData(ema10);
+    ema21Series.setData(ema21);
 
-    // Add volume price scale (on left bottom)
-    chart.priceScale('volume', {
-      visible: true,
-      borderColor: '#ccc',
-      scaleMargins: {
-        top: 0.8,
-        bottom: 0,
-      },
-    });
+    ema10SeriesRef.current = ema10Series;
+    ema21SeriesRef.current = ema21Series;
 
-    // Add volume series
+    // Volume histogram series on separate scale on right
     const volumeSeries = chart.addHistogramSeries({
+      priceScaleId: '', // use independent scale on right
+      priceLineVisible: false,
+      lastValueVisible: false,
+      color: '#26a69a',
       priceFormat: {
         type: 'volume',
       },
-      priceScaleId: 'volume',
-      scaleMargins: {
-        top: 0.8, // This will be ignored here, it's set above on priceScale
-        bottom: 0,
-      },
-      color: 'rgba(0, 150, 136, 0.8)', // fallback color
     });
-    volumeSeries.setData(volumeData);
     volumeSeriesRef.current = volumeSeries;
 
-    // Crosshair tooltip (show OHLCV data)
-    const toolTip = document.createElement('div');
-    toolTip.style = `
-      position: absolute;
-      display: none;
-      border: 1px solid #ccc;
-      background: white;
-      padding: 8px;
-      font-size: 12px;
-      z-index: 1000;
-      pointer-events: none;
-      white-space: nowrap;
-    `;
-    document.body.appendChild(toolTip);
+    // Volume data mapping
+    const volumeData: HistogramData[] = ohlcvData.map((row) => ({
+      time: Math.floor(new Date(row.date).getTime() / 1000),
+      value: row.volume,
+      color: row.close >= row.open ? 'rgba(38, 166, 154, 0.8)' : 'rgba(255, 82, 82, 0.8)',
+    }));
+    volumeSeries.setData(volumeData);
 
-    chart.subscribeCrosshairMove((param) => {
-      if (
-        param === undefined ||
-        param.time === undefined ||
-        param.point === undefined ||
-        param.seriesPrices.size === 0
-      ) {
-        toolTip.style.display = 'none';
-        return;
-      }
-
-      const time = param.time as UTCTimestamp;
-      const date = new Date(time * 1000);
-      const dateString = date.toLocaleDateString();
-
-      const price = param.seriesPrices.get(candleSeries);
-      if (!price) {
-        toolTip.style.display = 'none';
-        return;
-      }
-
-      // Find OHLCV for the hovered date
-      const ohlcv = ohlcvData.find(
-        (row) => Math.floor(new Date(row.date).getTime() / 1000) === time
-      );
-
-      if (!ohlcv) {
-        toolTip.style.display = 'none';
-        return;
-      }
-
-      toolTip.style.display = 'block';
-      toolTip.style.left = param.point.x + 15 + 'px';
-      toolTip.style.top = param.point.y + 15 + 'px';
-
-      toolTip.innerHTML = `
-        <strong>${symbol} - ${dateString}</strong><br/>
-        Open: ${ohlcv.open.toFixed(2)}<br/>
-        High: ${ohlcv.high.toFixed(2)}<br/>
-        Low: ${ohlcv.low.toFixed(2)}<br/>
-        Close: ${ohlcv.close.toFixed(2)}<br/>
-        Volume: ${ohlcv.volume.toLocaleString()}
-      `;
+    // Add volume scale to right
+    chart.priceScale('right').applyOptions({
+      scaleMargins: { top: 0.8, bottom: 0 },
     });
 
+    // Crosshair move handler for tooltip
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.time || !param.point) {
+        setTooltip((t) => ({ ...t, visible: false }));
+        return;
+      }
+
+      const time = param.time as number;
+      const hoveredIndex = candles.findIndex((c) => c.time === time);
+      if (hoveredIndex === -1) {
+        setTooltip((t) => ({ ...t, visible: false }));
+        return;
+      }
+
+      const candle = ohlcvData[hoveredIndex];
+
+      // Position tooltip near cursor
+      setTooltip({
+        visible: true,
+        x: param.point.x,
+        y: param.point.y,
+        data: {
+          open: candle.open,
+          high: candle.high,
+          low: candle.low,
+          close: candle.close,
+          volume: candle.volume,
+          time: candle.date,
+        },
+      });
+    });
+
+    // Cleanup on unmount
     return () => {
       chart.remove();
-      document.body.removeChild(toolTip);
     };
-  }, [ohlcvData, symbol]);
+  }, [ohlcvData, width, height]);
 
   return (
-    <div>
-      <h2>Chart for {symbol}</h2>
-      <div
-        id="chart-container"
-        style={{ position: 'relative', width: '900px', height: '500px' }}
-      />
+    <div style={{ position: 'relative' }}>
+      <div ref={chartContainerRef} />
+      {tooltip.visible && tooltip.data && (
+        <div
+          style={{
+            position: 'absolute',
+            left: tooltip.x + 10,
+            top: tooltip.y + 10,
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            border: '1px solid #ccc',
+            borderRadius: 4,
+            padding: '8px',
+            fontSize: 12,
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+            zIndex: 10,
+          }}
+        >
+          <div><b>{new Date(tooltip.data.time).toLocaleDateString()}</b></div>
+          <div>Open: {tooltip.data.open.toFixed(2)}</div>
+          <div>High: {tooltip.data.high.toFixed(2)}</div>
+          <div>Low: {tooltip.data.low.toFixed(2)}</div>
+          <div>Close: {tooltip.data.close.toFixed(2)}</div>
+          <div>Volume: {tooltip.data.volume.toLocaleString()}</div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default ChartPage;
+export default Chart;
