@@ -18,7 +18,7 @@ export default function Sidebar({ activeTab, setActiveTab }: Props) {
         {tabs.map((tab) => (
           <li key={tab.id}>
             <button
-              className={\`w-full text-left px-3 py-2 rounded hover:bg-gray-700 \${activeTab === tab.id ? 'bg-gray-700 font-semibold' : ''}\`}
+              className={`w-full text-left px-3 py-2 rounded hover:bg-gray-700 ${activeTab === tab.id ? 'bg-gray-700 font-semibold' : ''}`}
               onClick={() => setActiveTab(tab.id)}
             >
               {tab.label}
