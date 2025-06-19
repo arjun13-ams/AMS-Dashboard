@@ -1,10 +1,10 @@
 'use client';
 import { useState } from 'react';
-import Sidebar from '@/components/Sidebar';
-import ChartView from '@/components/ChartView';
-import MomentumTabs from '@/components/MomentumTabs';
-import RebalanceView from '@/components/RebalanceView';
-import PortfolioView from '@/components/PortfolioView';
+import Sidebar from '../../components/Sidebar';
+import ChartView from '../../components/ChartView';
+import MomentumTabs from '../../components/MomentumTabs';
+import RebalanceView from '../../components/RebalanceView';
+import PortfolioView from '../../components/PortfolioView';
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState('chart');
