@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { Calendar } from "../components/ui/calendar";
 
 const STRATEGIES = [
   { key: "Close-Based", label: "Close-Based" },
