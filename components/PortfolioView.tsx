@@ -110,7 +110,7 @@ export default function PortfolioView() {
 
   return (
     <div className="w-full space-y-6">
-      <Tabs value={selectedTab} className="w-full">
+      <Tabs defaultValue={selectedTab} value={selectedTab} className="w-full">
         <TabsList>
           {STRATEGIES.map((s) => (
             <TabsTrigger key={s.key} value={s.key} isActive={selectedTab === s.key} onClick={() => setSelectedTab(s.key)}>
