@@ -7,11 +7,18 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Strategy display labels and database keys
+const STRATEGIES = [
+  { key: "close", label: "Close Based", supabaseKey: "Close-Based" },
+  { key: "tr", label: "True Range", supabaseKey: "True-Range" },
+  { key: "comb", label: "Combined", supabaseKey: "Combined" },
+  { key: "mv", label: "P1-MV", supabaseKey: "P1-MV" },
+];
+
 export default function RebalanceTabs() {
-  const [dates, setDates] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [logs, setLogs] = useState({});
-  const strategies = ["P1-CLOSE", "P2-TR", "P3-COMB", "P4-MV"];
+  const [dates, setDates] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [logs, setLogs] = useState<Record<string, any>>({});
 
   useEffect(() => {
     const fetchRebalanceDates = async () => {
@@ -19,6 +26,8 @@ export default function RebalanceTabs() {
         .from("weekly_rebalance")
         .select("date")
         .order("date", { ascending: false });
+
+      if (error) console.error("Error fetching dates:", error);
 
       if (data && data.length) {
         const uniqueDates = Array.from(new Set(data.map((d) => d.date))).slice(0, 5);
@@ -31,19 +40,22 @@ export default function RebalanceTabs() {
 
   useEffect(() => {
     if (!selectedDate) return;
+
     const fetchLogs = async () => {
-      const allLogs = {};
-      for (const strategy of strategies) {
+      const allLogs: Record<string, any> = {};
+      for (const strat of STRATEGIES) {
+        const { supabaseKey, key } = strat;
+
         const { data: current } = await supabase
           .from("weekly_rebalance")
           .select("symbol")
-          .eq("strategy", strategy)
+          .eq("strategy", supabaseKey)
           .eq("date", selectedDate);
 
         const { data: previous } = await supabase
           .from("weekly_rebalance")
-          .select("symbol")
-          .eq("strategy", strategy)
+          .select("symbol, date")
+          .eq("strategy", supabaseKey)
           .lt("date", selectedDate)
           .order("date", { ascending: false })
           .limit(1);
@@ -55,16 +67,19 @@ export default function RebalanceTabs() {
         const held = currentSymbols.filter((s) => previousSymbols.includes(s));
         const removed = previousSymbols.filter((s) => !currentSymbols.includes(s));
 
-        allLogs[strategy] = { added, held, removed };
+        allLogs[key] = { added, held, removed };
       }
+
       setLogs(allLogs);
     };
+
     fetchLogs();
   }, [selectedDate]);
 
-  const renderLog = (strategyKey) => {
+  const renderLog = (strategyKey: string) => {
     const data = logs[strategyKey];
-    if (!data) return <div>Loading...</div>;
+    if (!data) return <div className="text-sm text-gray-400">Loading...</div>;
+
     return (
       <div className="space-y-4">
         <table className="w-full text-sm border border-gray-700">
@@ -75,13 +90,13 @@ export default function RebalanceTabs() {
             </tr>
           </thead>
           <tbody>
-            {data.added.map((s) => (
+            {data.added.map((s: string) => (
               <tr key={s} className="bg-green-900/40">
                 <td className="p-2 font-semibold">{s}</td>
                 <td className="p-2">🟢 Added *</td>
               </tr>
             ))}
-            {data.held.map((s) => (
+            {data.held.map((s: string) => (
               <tr key={s} className="bg-blue-900/40">
                 <td className="p-2">{s}</td>
                 <td className="p-2">✅ Held</td>
@@ -89,14 +104,17 @@ export default function RebalanceTabs() {
             ))}
           </tbody>
         </table>
-        <div className="text-sm text-red-400">
-          ❌ Removed this week:
-          <ul className="list-disc ml-5">
-            {data.removed.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ul>
-        </div>
+
+        {data.removed.length > 0 && (
+          <div className="text-sm text-red-400">
+            ❌ Removed this week:
+            <ul className="list-disc ml-5 mt-1">
+              {data.removed.map((s: string) => (
+                <li key={s}>{s}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     );
   };
@@ -107,7 +125,7 @@ export default function RebalanceTabs() {
         {dates.map((d) => (
           <button
             key={d}
-            className={`px-4 py-1 rounded border ${
+            className={`px-4 py-1 rounded border text-sm ${
               d === selectedDate ? "bg-green-800 border-green-400" : "bg-zinc-800 border-gray-600"
             }`}
             onClick={() => setSelectedDate(d)}
@@ -117,17 +135,20 @@ export default function RebalanceTabs() {
         ))}
       </div>
 
-      <Tabs defaultValue="P1-CLOSE" className="w-full">
+      <Tabs defaultValue={STRATEGIES[0].key} className="w-full">
         <TabsList>
-          <TabsTrigger value="P1-CLOSE">Close Based</TabsTrigger>
-          <TabsTrigger value="P2-TR">True Range</TabsTrigger>
-          <TabsTrigger value="P3-COMB">Combined</TabsTrigger>
-          <TabsTrigger value="P4-MV">Physics Based</TabsTrigger>
+          {STRATEGIES.map((s) => (
+            <TabsTrigger key={s.key} value={s.key}>
+              {s.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
-        <TabsContent value="P1-CLOSE">{renderLog("P1-CLOSE")}</TabsContent>
-        <TabsContent value="P2-TR">{renderLog("P2-TR")}</TabsContent>
-        <TabsContent value="P3-COMB">{renderLog("P3-COMB")}</TabsContent>
-        <TabsContent value="P4-MV">{renderLog("P4-MV")}</TabsContent>
+
+        {STRATEGIES.map((s) => (
+          <TabsContent key={s.key} value={s.key}>
+            {renderLog(s.key)}
+          </TabsContent>
+        ))}
       </Tabs>
     </div>
   );
