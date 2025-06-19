@@ -48,12 +48,18 @@ export default function PortfolioView() {
           .order("rebalance_date", { ascending: true });
 
         const { data, error } = await query;
+        console.log(`Fetched data for strategy: ${strategy.key}`, { data, error });
         if (error || !data) continue;
 
         const filtered = data.filter((d) => {
           const date = dayjs(d.rebalance_date);
           return (!from || date.isAfter(from.subtract(1, "day"))) && (!to || date.isBefore(to.add(1, "day")));
         });
+
+        console.log(`Filtered data for ${strategy.key}:`, filtered.map(d => ({
+        date: d.rebalance_date,
+        value: d.portfolio_value
+        })));
 
         if (filtered.length < 2) continue;
 
@@ -63,6 +69,10 @@ export default function PortfolioView() {
         const startVal = values[0];
         const endVal = values[values.length - 1];
         const totalDays = dayjs(dates[values.length - 1]).diff(dayjs(dates[0]), 'day');
+
+        console.log(`Calculating metrics for ${strategy.key}`);
+        console.log(`Start Value: ${startVal}, End Value: ${endVal}, Total Days: ${totalDays}`);
+        
         const years = totalDays / 365;
         const returns = values.map((v, i) => (i === 0 ? 0 : (v - values[i - 1]) / values[i - 1]));
 
@@ -82,6 +92,9 @@ export default function PortfolioView() {
           currentDD: Math.abs(currentDrawdown).toFixed(2),
           sharpe: sharpe.toFixed(2),
         };
+
+        console.log(`Metrics for ${strategy.key}:`, newMetrics[strategy.key]);
+        
       }
 
       setMetrics(newMetrics);
@@ -129,6 +142,7 @@ export default function PortfolioView() {
               <div className="p-4 bg-zinc-900 rounded">💰 Realized P&L: ₹--</div>
               <div className="p-4 bg-zinc-900 rounded">💼 Unrealized P&L: ₹--</div>
               <div className="p-4 bg-zinc-900 rounded">🎯 Win Rate: --%</div>
+              {console.log("Rendering metrics for tab:", s.key, metrics[s.key])}
             </div>
 
             <div className="mt-6 h-[300px] bg-zinc-800 rounded flex items-center justify-center text-gray-400">
