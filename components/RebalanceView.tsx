@@ -83,6 +83,12 @@ export default function RebalanceTabs() {
           const currentSymbols = current?.map((r) => r.symbol) || [];
           const previousSymbols = previous?.map((r) => r.symbol) || [];
 
+          // Debug logs here:
+          console.log(`Strategy: ${strategy}`);
+          console.log(`Selected Date: ${selectedDate}`);
+          console.log("Current symbols:", currentSymbols);
+          console.log("Previous symbols:", previousSymbols);
+
           const added = currentSymbols.filter((s) => !previousSymbols.includes(s));
           const held = currentSymbols.filter((s) => previousSymbols.includes(s));
           const removed = previousSymbols.filter((s) => !currentSymbols.includes(s));
