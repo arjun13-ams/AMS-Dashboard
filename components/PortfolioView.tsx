@@ -16,12 +16,11 @@ const CALENDAR_OPTIONS = [
 
 export default function PortfolioView() {
   const [calendarFilter, setCalendarFilter] = useState("All");
-  const [selectedTab, setSelectedTab] = useState(STRATEGIES[0].key);
-
+  
   return (
     <div className="w-full space-y-6">
       {/* Strategy Tabs */}
-      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+      <Tabs defaultValue="Close-Based" className="w-full">
         <TabsList>
           {STRATEGIES.map((s) => (
             <TabsTrigger key={s.key} value={s.key}>
