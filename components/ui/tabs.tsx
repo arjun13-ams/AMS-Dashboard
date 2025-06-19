@@ -1,8 +1,15 @@
-import { useState, useEffect, ReactNode, cloneElement, isValidElement } from "react";
+import {
+  useState,
+  useEffect,
+  ReactNode,
+  ReactElement,
+  isValidElement,
+  cloneElement,
+} from "react";
 
 type TabsProps = {
-  defaultValue?: string;
-  value?: string; // controlled
+  defaultValue: string;
+  value?: string;
   children: ReactNode;
   className?: string;
 };
@@ -20,28 +27,24 @@ type TabsContentProps = {
 };
 
 export function Tabs({ defaultValue, value, children, className }: TabsProps) {
-  const [internalTab, setInternalTab] = useState(defaultValue ?? "");
   const isControlled = value !== undefined;
+  const [internalTab, setInternalTab] = useState(defaultValue);
   const activeTab = isControlled ? value : internalTab;
-
-  useEffect(() => {
-    if (isControlled && value !== internalTab) {
-      setInternalTab(value);
-    }
-  }, [value]);
 
   const triggers: ReactNode[] = [];
   const contents: ReactNode[] = [];
 
   const childrenArray = Array.isArray(children) ? children : [children];
 
-  childrenArray.forEach((child: any) => {
+  childrenArray.forEach((child, index) => {
     if (!isValidElement(child)) return;
 
-    if (child.type === TabsList) {
-      const triggerChildren = Array.isArray(child.props.children)
-        ? child.props.children
-        : [child.props.children];
+    const element = child as ReactElement;
+
+    if (element.type === TabsList) {
+      const triggerChildren = Array.isArray(element.props.children)
+        ? element.props.children
+        : [element.props.children];
 
       const modifiedChildren = triggerChildren.map((trigger) => {
         if (!isValidElement(trigger)) return trigger;
@@ -49,7 +52,7 @@ export function Tabs({ defaultValue, value, children, className }: TabsProps) {
         const triggerValue = trigger.props.value;
         const isActive = triggerValue === activeTab;
 
-        const onClick = () => {
+        const handleClick = () => {
           if (!isControlled) {
             setInternalTab(triggerValue);
           }
@@ -58,24 +61,22 @@ export function Tabs({ defaultValue, value, children, className }: TabsProps) {
 
         return cloneElement(trigger, {
           isActive,
-          onClick,
+          onClick: handleClick,
         });
       });
 
-      triggers.push(cloneElement(child, {}, modifiedChildren));
-    }
-
-    if (
-      (child.type === TabsContent || child.type?.name === "TabsContent") &&
-      child.props.value === activeTab
+      triggers.push(modifiedChildren);
+    } else if (
+      (element.type === TabsContent || element.type?.name === "TabsContent") &&
+      element.props.value === activeTab
     ) {
-      contents.push(child);
+      contents.push(element);
     }
   });
 
   return (
     <div className={className}>
-      <div className="flex gap-2 mb-4">{triggers}</div>
+      <div className="flex gap-2 mb-4">{triggers.flat()}</div>
       <div>{contents}</div>
     </div>
   );
@@ -103,6 +104,6 @@ export function TabsTrigger({
   );
 }
 
-export function TabsContent({ children }: TabsContentProps) {
+export function TabsContent({ value, children }: TabsContentProps) {
   return <div>{children}</div>;
 }
