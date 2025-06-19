@@ -48,17 +48,19 @@ export function Tabs({ defaultValue, value, children, className }: TabsProps) {
       const modifiedChildren = triggerChildren.map((trigger) => {
         if (!isValidElement(trigger)) return trigger;
 
-        const triggerValue = trigger.props.value;
+        // ✅ Cast trigger to known props type
+        const triggerElement = trigger as ReactElement<TabsTriggerProps>;
+        const triggerValue = triggerElement.props.value;
         const isActive = triggerValue === activeTab;
 
         const handleClick = () => {
           if (!isControlled) {
             setInternalTab(triggerValue);
           }
-          trigger.props.onClick?.();
+          triggerElement.props.onClick?.();
         };
 
-        return cloneElement(trigger, {
+        return cloneElement(triggerElement, {
           isActive,
           onClick: handleClick,
         });
