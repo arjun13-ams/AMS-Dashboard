@@ -1,7 +1,8 @@
-import { useState, ReactNode } from "react";
+import { useState, useEffect, ReactNode } from "react";
 
 type TabsProps = {
   defaultValue: string;
+  value?: string;               // Added for controlled active tab
   children: ReactNode;
   className?: string;
 };
@@ -16,8 +17,16 @@ type TabsContentProps = {
   children: ReactNode;
 };
 
-export function Tabs({ defaultValue, children, className }: TabsProps) {
+export function Tabs({ defaultValue, value, children, className }: TabsProps) {
   const [activeTab, setActiveTab] = useState(defaultValue);
+
+  // Sync activeTab state with controlled value prop if provided
+  useEffect(() => {
+    if (value !== undefined && value !== activeTab) {
+      console.log(`Tabs: syncing activeTab state to controlled value: ${value}`);
+      setActiveTab(value);
+    }
+  }, [value, activeTab]);
 
   console.log("Tabs: current activeTab =", activeTab);
 
