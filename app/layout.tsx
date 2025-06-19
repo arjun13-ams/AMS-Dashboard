@@ -12,7 +12,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <head>
+        <script
+          src="https://s3.tradingview.com/tv.js"
+          async
+        ></script>
+      </head>
+      <body>{children}</body>
     </html>
   );
 }
