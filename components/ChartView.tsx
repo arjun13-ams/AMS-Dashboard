@@ -1,126 +1,125 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { createChart } from 'lightweight-charts';
 import { supabase } from '../lib/supabase';
 
-declare global {
-  interface Window {
-    TradingView: any;
-  }
-}
-
 export default function ChartView() {
+  const chartContainerRef = useRef<HTMLDivElement>(null);
   const [symbols, setSymbols] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredSymbols, setFilteredSymbols] = useState<string[]>([]);
-  const [selectedSymbol, setSelectedSymbol] = useState('NSE:TCS');
+  const [selectedSymbol, setSelectedSymbol] = useState<string>('TCS');
 
-  const widgetRef = useRef<any>(null);
+  const chartRef = useRef<any>(null);
+  const candleSeriesRef = useRef<any>(null);
+  const ema10SeriesRef = useRef<any>(null);
+  const ema21SeriesRef = useRef<any>(null);
 
-  // Fetch stock list on mount
   useEffect(() => {
     async function fetchSymbols() {
-      let { data, error } = await supabase
-        .from('cnx500_stock_list')
-        .select('symbol')
-        .limit(500);
-      if (error) {
-        console.error('Error fetching symbols:', error);
-      } else {
-        // Prefix with NSE: for TradingView
-        const prefixedSymbols = data?.map((item) => 'NSE:' + item.symbol) || [];
-        setSymbols(prefixedSymbols);
-        setFilteredSymbols(prefixedSymbols);
+      const { data, error } = await supabase.from('cnx500_stock_list').select('symbol');
+      if (!error && data) {
+        const list = data.map((row) => row.symbol);
+        setSymbols(list);
+        setFilteredSymbols(list);
       }
     }
     fetchSymbols();
   }, []);
 
-  // Filter symbols on search change
   useEffect(() => {
-    if (searchTerm === '') {
-      setFilteredSymbols(symbols);
-    } else {
-      const filtered = symbols.filter((sym) =>
-        sym.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredSymbols(filtered);
-    }
-  }, [searchTerm, symbols]);
+    const filtered = symbols.filter((s) => s.toLowerCase().includes(searchTerm.toLowerCase()));
+    setFilteredSymbols(filtered);
+  }, [searchTerm]);
 
-  // Load TradingView widget whenever selectedSymbol changes
   useEffect(() => {
-    if (!window.TradingView) return;
-
-    if (widgetRef.current) {
-      widgetRef.current.remove();
-      widgetRef.current = null;
-    }
-
-    const widget = new window.TradingView.widget({
-      container_id: 'tv_chart_container',
-      autosize: true,
-      symbol: selectedSymbol,
-      interval: 'D',
-      timezone: 'Asia/Kolkata',
-      theme: 'dark',
-      style: '1',
-      locale: 'en',
-      toolbar_bg: '#f1f3f6',
-      enable_publishing: false,
-      allow_symbol_change: false,
-      hide_top_toolbar: false,
-      save_image: false,
-      studies: ['EMAExp@tv-basicstudies', 'EMAExp@tv-basicstudies'], // Default 10 and 21 EMA
-      studies_overrides: {
-        'EMAExp.length': 10,
-        'EMAExp.length_0': 21,
-      },
-      withdateranges: true,
-      details: true,
-      hide_side_toolbar: false,
-      calendar: true,
-      news: ['headlines'],
+    if (!chartContainerRef.current) return;
+    chartRef.current?.remove();
+    chartRef.current = createChart(chartContainerRef.current, {
+      layout: { background: { color: '#111' }, textColor: '#DDD' },
+      grid: { vertLines: { color: '#222' }, horzLines: { color: '#222' } },
+      timeScale: { timeVisible: true },
+      height: 500,
     });
+    candleSeriesRef.current = chartRef.current.addCandlestickSeries();
+    ema10SeriesRef.current = chartRef.current.addLineSeries({ color: 'orange', lineWidth: 1 });
+    ema21SeriesRef.current = chartRef.current.addLineSeries({ color: 'cyan', lineWidth: 1 });
+  }, [selectedSymbol]);
 
-    widgetRef.current = widget;
+  useEffect(() => {
+    async function fetchData() {
+      const { data, error } = await supabase
+        .from('ohlcv_data')
+        .select('date, open, high, low, close')
+        .eq('symbol', selectedSymbol)
+        .order('date');
 
-    return () => {
-      if (widgetRef.current) {
-        widgetRef.current.remove();
-        widgetRef.current = null;
-      }
-    };
+      if (error || !data) return;
+
+      const candleData = data.map((row) => ({
+        time: row.date,
+        open: row.open,
+        high: row.high,
+        low: row.low,
+        close: row.close,
+      }));
+
+      candleSeriesRef.current?.setData(candleData);
+
+      const ema = (period: number) => {
+        let sum = 0;
+        const k = 2 / (period + 1);
+        const result: { time: string; value: number }[] = [];
+        candleData.forEach((bar, i) => {
+          if (i < period - 1) return;
+          if (i === period - 1) {
+            sum = candleData.slice(0, period).reduce((acc, d) => acc + d.close, 0);
+            result.push({ time: bar.time, value: sum / period });
+          } else {
+            const prev = result[result.length - 1].value;
+            const curr = bar.close * k + prev * (1 - k);
+            result.push({ time: bar.time, value: curr });
+          }
+        });
+        return result;
+      };
+
+      ema10SeriesRef.current?.setData(ema(10));
+      ema21SeriesRef.current?.setData(ema(21));
+    }
+
+    fetchData();
   }, [selectedSymbol]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       <div className="mb-4">
         <input
+          className="p-2 rounded border border-gray-600 bg-gray-800 text-white w-full"
           type="text"
-          placeholder="Search NSE symbol e.g. NSE:TCS"
+          placeholder="Search symbol"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="p-2 rounded border border-gray-600 bg-gray-800 text-white w-full"
         />
         {searchTerm && (
-          <ul className="max-h-48 overflow-auto bg-gray-900 border border-gray-700 rounded mt-1 text-sm">
-            {filteredSymbols.slice(0, 20).map((sym) => (
+          <ul className="bg-gray-900 max-h-48 overflow-auto rounded mt-1 text-sm border border-gray-700">
+            {filteredSymbols.slice(0, 15).map((s) => (
               <li
-                key={sym}
+                key={s}
                 className="p-2 hover:bg-gray-700 cursor-pointer"
                 onClick={() => {
-                  setSelectedSymbol(sym);
+                  setSelectedSymbol(s);
                   setSearchTerm('');
                 }}
               >
-                {sym}
+                {s}
               </li>
             ))}
           </ul>
         )}
       </div>
-      <div id="tv_chart_container" className="flex-1" style={{ minHeight: 600 }} />
+      <div ref={chartContainerRef} className="w-full" />
     </div>
   );
 }
