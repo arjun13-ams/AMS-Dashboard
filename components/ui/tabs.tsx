@@ -41,7 +41,10 @@ export function Tabs({ defaultValue, children, className }: TabsProps) {
             : trigger
         )
       );
-    } else if (child.type === TabsContent && child.props.value === activeTab) {
+    } else if (
+      (child.type === TabsContent || child.type?.name === "TabsContent") &&
+      child.props.value === activeTab
+    ) {
       contents.push(child);
     }
   });
