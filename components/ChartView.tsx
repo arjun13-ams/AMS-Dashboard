@@ -1,24 +1,24 @@
-'use client';
+"use client";
 
-import React, { useEffect, useRef, useState } from 'react';
-import { createChart } from 'lightweight-charts';
-import { supabase } from '../lib/supabase';
+import React, { useEffect, useRef, useState } from "react";
+import { createChart } from "lightweight-charts";
+import { supabase } from "../lib/supabase";
 
 export default function ChartView() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const [symbols, setSymbols] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredSymbols, setFilteredSymbols] = useState<string[]>([]);
-  const [selectedSymbol, setSelectedSymbol] = useState<string>('TCS');
-
   const chartRef = useRef<any>(null);
   const candleSeriesRef = useRef<any>(null);
   const ema10SeriesRef = useRef<any>(null);
   const ema21SeriesRef = useRef<any>(null);
 
+  const [symbols, setSymbols] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredSymbols, setFilteredSymbols] = useState<string[]>([]);
+  const [selectedSymbol, setSelectedSymbol] = useState<string>("TCS");
+
   useEffect(() => {
     async function fetchSymbols() {
-      const { data, error } = await supabase.from('cnx500_stock_list').select('symbol');
+      const { data, error } = await supabase.from("cnx500_stock_list").select("symbol");
       if (!error && data) {
         const list = data.map((row) => row.symbol);
         setSymbols(list);
@@ -31,29 +31,36 @@ export default function ChartView() {
   useEffect(() => {
     const filtered = symbols.filter((s) => s.toLowerCase().includes(searchTerm.toLowerCase()));
     setFilteredSymbols(filtered);
-  }, [searchTerm]);
+  }, [searchTerm, symbols]);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
-    chartRef.current?.remove();
-    chartRef.current = createChart(chartContainerRef.current, {
-      layout: { background: { color: '#111' }, textColor: '#DDD' },
-      grid: { vertLines: { color: '#222' }, horzLines: { color: '#222' } },
+
+    // Clear previous chart instance
+    if (chartRef.current) {
+      chartRef.current.remove();
+    }
+
+    const chart = createChart(chartContainerRef.current, {
+      layout: { background: { color: "#111" }, textColor: "#DDD" },
+      grid: { vertLines: { color: "#222" }, horzLines: { color: "#222" } },
       timeScale: { timeVisible: true },
       height: 500,
     });
-    candleSeriesRef.current = chartRef.current.addCandlestickSeries();
-    ema10SeriesRef.current = chartRef.current.addLineSeries({ color: 'orange', lineWidth: 1 });
-    ema21SeriesRef.current = chartRef.current.addLineSeries({ color: 'cyan', lineWidth: 1 });
+
+    chartRef.current = chart;
+    candleSeriesRef.current = chart.addCandlestickSeries();
+    ema10SeriesRef.current = chart.addLineSeries({ color: "orange", lineWidth: 1 });
+    ema21SeriesRef.current = chart.addLineSeries({ color: "cyan", lineWidth: 1 });
   }, [selectedSymbol]);
 
   useEffect(() => {
     async function fetchData() {
       const { data, error } = await supabase
-        .from('ohlcv_data')
-        .select('date, open, high, low, close')
-        .eq('symbol', selectedSymbol)
-        .order('date');
+        .from("ohlcv_data")
+        .select("date, open, high, low, close")
+        .eq("symbol", selectedSymbol)
+        .order("date");
 
       if (error || !data) return;
 
@@ -68,20 +75,25 @@ export default function ChartView() {
       candleSeriesRef.current?.setData(candleData);
 
       const ema = (period: number) => {
-        let sum = 0;
         const k = 2 / (period + 1);
         const result: { time: string; value: number }[] = [];
+        let prevEma: number | undefined;
+
         candleData.forEach((bar, i) => {
           if (i < period - 1) return;
           if (i === period - 1) {
-            sum = candleData.slice(0, period).reduce((acc, d) => acc + d.close, 0);
-            result.push({ time: bar.time, value: sum / period });
+            const sum = candleData.slice(0, period).reduce((acc, d) => acc + d.close, 0);
+            prevEma = sum / period;
           } else {
-            const prev = result[result.length - 1].value;
-            const curr = bar.close * k + prev * (1 - k);
-            result.push({ time: bar.time, value: curr });
+            if (prevEma !== undefined) {
+              prevEma = bar.close * k + prevEma * (1 - k);
+            }
+          }
+          if (prevEma !== undefined) {
+            result.push({ time: bar.time, value: prevEma });
           }
         });
+
         return result;
       };
 
@@ -110,7 +122,7 @@ export default function ChartView() {
                 className="p-2 hover:bg-gray-700 cursor-pointer"
                 onClick={() => {
                   setSelectedSymbol(s);
-                  setSearchTerm('');
+                  setSearchTerm("");
                 }}
               >
                 {s}
