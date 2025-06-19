@@ -56,10 +56,13 @@ export default function PortfolioView() {
           return (!from || date.isAfter(from.subtract(1, "day"))) && (!to || date.isBefore(to.add(1, "day")));
         });
 
-        console.log(`Filtered data for ${strategy.key}:`, filtered.map(d => ({
-          date: d.rebalance_date,
-          value: d.portfolio_value
-        })));
+        console.log(
+          `Filtered data for ${strategy.key}:`,
+          filtered.map((d) => ({
+            date: d.rebalance_date,
+            value: d.portfolio_value,
+          }))
+        );
 
         if (filtered.length < 2) continue;
 
@@ -68,7 +71,7 @@ export default function PortfolioView() {
 
         const startVal = values[0];
         const endVal = values[values.length - 1];
-        const totalDays = dayjs(dates[values.length - 1]).diff(dayjs(dates[0]), 'day');
+        const totalDays = dayjs(dates[values.length - 1]).diff(dayjs(dates[0]), "day");
 
         console.log(`Calculating metrics for ${strategy.key}`);
         console.log(`Start Value: ${startVal}, End Value: ${endVal}, Total Days: ${totalDays}`);
@@ -107,7 +110,7 @@ export default function PortfolioView() {
 
   return (
     <div className="w-full space-y-6">
-      <Tabs defaultValue={selectedTab} className="w-full">
+      <Tabs value={selectedTab} className="w-full">
         <TabsList>
           {STRATEGIES.map((s) => (
             <TabsTrigger key={s.key} value={s.key} isActive={selectedTab === s.key} onClick={() => setSelectedTab(s.key)}>
