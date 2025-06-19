@@ -47,11 +47,11 @@ export default function MomentumTabs() {
         .from("ohlcv_last_6_months")
         .select("symbol")
         .neq("symbol", null)
-        .group("symbol");
+        .order("symbol", { ascending: true });
 
       if (errSymbols || !symbolsData) throw errSymbols || new Error("No symbols");
 
-      const symbols = symbolsData.map((r) => r.symbol);
+      const symbols = Array.from(new Set(symbolsData.map((r) => r.symbol)));
 
       const results: MomentumData[] = [];
 
