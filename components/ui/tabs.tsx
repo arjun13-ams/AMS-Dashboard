@@ -1,4 +1,3 @@
-// components/ui/tabs.tsx
 import { useState, ReactNode } from "react";
 
 type TabsProps = {
@@ -20,32 +19,45 @@ type TabsContentProps = {
 export function Tabs({ defaultValue, children, className }: TabsProps) {
   const [activeTab, setActiveTab] = useState(defaultValue);
 
+  console.log("Tabs: current activeTab =", activeTab);
+
   const triggers: ReactNode[] = [];
   const contents: ReactNode[] = [];
 
   const childrenArray = Array.isArray(children) ? children : [children];
 
-  childrenArray.forEach((child: any) => {
+  childrenArray.forEach((child: any, index: number) => {
+    console.log(`Tabs: processing child[${index}] type:`, child.type?.name || child.type);
+
     if (child.type === TabsList) {
+      console.log("Tabs: Found TabsList with children:", child.props.children);
       triggers.push(
-        child.props.children.map((trigger: any) =>
-          trigger.type === TabsTrigger
-            ? {
-                ...trigger,
-                props: {
-                  ...trigger.props,
-                  isActive: trigger.props.value === activeTab,
-                  onClick: () => setActiveTab(trigger.props.value),
+        child.props.children.map((trigger: any, i: number) => {
+          console.log(`Tabs: processing trigger[${i}] with value:`, trigger.props.value);
+          if (trigger.type === TabsTrigger) {
+            return {
+              ...trigger,
+              props: {
+                ...trigger.props,
+                isActive: trigger.props.value === activeTab,
+                onClick: () => {
+                  console.log("TabsTrigger clicked:", trigger.props.value);
+                  setActiveTab(trigger.props.value);
                 },
-              }
-            : trigger
-        )
+              },
+            };
+          }
+          return trigger;
+        })
       );
     } else if (
       (child.type === TabsContent || child.type?.name === "TabsContent") &&
       child.props.value === activeTab
     ) {
+      console.log("Tabs: Adding TabsContent with value:", child.props.value);
       contents.push(child);
+    } else {
+      console.log("Tabs: Skipping child", child);
     }
   });
 
@@ -67,6 +79,7 @@ export function TabsTrigger({
   isActive,
   onClick,
 }: TabsTriggerProps & { isActive?: boolean; onClick?: () => void }) {
+  console.log(`TabsTrigger render: value=${value}, isActive=${isActive}`);
   return (
     <button
       onClick={onClick}
@@ -80,5 +93,6 @@ export function TabsTrigger({
 }
 
 export function TabsContent({ children }: TabsContentProps) {
+  console.log("TabsContent render");
   return <div>{children}</div>;
 }
