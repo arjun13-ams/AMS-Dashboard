@@ -1,8 +1,8 @@
-import { useState, useEffect, ReactNode } from "react";
+import { useState, useEffect, ReactNode, cloneElement, isValidElement } from "react";
 
 type TabsProps = {
-  defaultValue: string;
-  value?: string;               // Added for controlled active tab
+  defaultValue?: string;
+  value?: string; // controlled
   children: ReactNode;
   className?: string;
 };
@@ -10,6 +10,8 @@ type TabsProps = {
 type TabsTriggerProps = {
   value: string;
   children: ReactNode;
+  isActive?: boolean;
+  onClick?: () => void;
 };
 
 type TabsContentProps = {
@@ -18,61 +20,62 @@ type TabsContentProps = {
 };
 
 export function Tabs({ defaultValue, value, children, className }: TabsProps) {
-  const [activeTab, setActiveTab] = useState(defaultValue);
+  const [internalTab, setInternalTab] = useState(defaultValue ?? "");
+  const isControlled = value !== undefined;
+  const activeTab = isControlled ? value : internalTab;
 
-  // Sync activeTab state with controlled value prop if provided
   useEffect(() => {
-    if (value !== undefined && value !== activeTab) {
-      console.log(`Tabs: syncing activeTab state to controlled value: ${value}`);
-      setActiveTab(value);
+    if (isControlled && value !== internalTab) {
+      setInternalTab(value);
     }
-  }, [value, activeTab]);
-
-  console.log("Tabs: current activeTab =", activeTab);
+  }, [value]);
 
   const triggers: ReactNode[] = [];
   const contents: ReactNode[] = [];
 
   const childrenArray = Array.isArray(children) ? children : [children];
 
-  childrenArray.forEach((child: any, index: number) => {
-    console.log(`Tabs: processing child[${index}] type:`, child.type?.name || child.type);
+  childrenArray.forEach((child: any) => {
+    if (!isValidElement(child)) return;
 
     if (child.type === TabsList) {
-      console.log("Tabs: Found TabsList with children:", child.props.children);
-      triggers.push(
-        child.props.children.map((trigger: any, i: number) => {
-          console.log(`Tabs: processing trigger[${i}] with value:`, trigger.props.value);
-          if (trigger.type === TabsTrigger) {
-            return {
-              ...trigger,
-              props: {
-                ...trigger.props,
-                isActive: trigger.props.value === activeTab,
-                onClick: () => {
-                  console.log("TabsTrigger clicked:", trigger.props.value);
-                  setActiveTab(trigger.props.value);
-                },
-              },
-            };
+      const triggerChildren = Array.isArray(child.props.children)
+        ? child.props.children
+        : [child.props.children];
+
+      const modifiedChildren = triggerChildren.map((trigger) => {
+        if (!isValidElement(trigger)) return trigger;
+
+        const triggerValue = trigger.props.value;
+        const isActive = triggerValue === activeTab;
+
+        const onClick = () => {
+          if (!isControlled) {
+            setInternalTab(triggerValue);
           }
-          return trigger;
-        })
-      );
-    } else if (
+          trigger.props.onClick?.();
+        };
+
+        return cloneElement(trigger, {
+          isActive,
+          onClick,
+        });
+      });
+
+      triggers.push(cloneElement(child, {}, modifiedChildren));
+    }
+
+    if (
       (child.type === TabsContent || child.type?.name === "TabsContent") &&
       child.props.value === activeTab
     ) {
-      console.log("Tabs: Adding TabsContent with value:", child.props.value);
       contents.push(child);
-    } else {
-      console.log("Tabs: Skipping child", child);
     }
   });
 
   return (
     <div className={className}>
-      <div className="flex gap-2 mb-4">{triggers.flat()}</div>
+      <div className="flex gap-2 mb-4">{triggers}</div>
       <div>{contents}</div>
     </div>
   );
@@ -87,8 +90,7 @@ export function TabsTrigger({
   children,
   isActive,
   onClick,
-}: TabsTriggerProps & { isActive?: boolean; onClick?: () => void }) {
-  console.log(`TabsTrigger render: value=${value}, isActive=${isActive}`);
+}: TabsTriggerProps) {
   return (
     <button
       onClick={onClick}
@@ -102,6 +104,5 @@ export function TabsTrigger({
 }
 
 export function TabsContent({ children }: TabsContentProps) {
-  console.log("TabsContent render");
   return <div>{children}</div>;
 }
