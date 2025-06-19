@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 
@@ -101,6 +101,110 @@ function calculatePhysicsBasedMomentum(ohlcvData) {
   };
 }
 
+// Helper: determine trend direction string
+function getTrend(score) {
+  if (score > 60) return "up";
+  if (score < 40) return "down";
+  return "flat";
+}
+
+function MomentumTable({ data }) {
+  const [search, setSearch] = useState("");
+  const [sortConfig, setSortConfig] = useState({ key: "scoreSmooth", direction: "descending" });
+
+  const filteredData = useMemo(() => {
+    let filtered = data.filter((item) =>
+      item.symbol.toLowerCase().includes(search.toLowerCase())
+    );
+
+    if (sortConfig !== null) {
+      filtered = filtered.sort((a, b) => {
+        const aVal = a[sortConfig.key];
+        const bVal = b[sortConfig.key];
+        if (aVal < bVal) return sortConfig.direction === "ascending" ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === "ascending" ? 1 : -1;
+        return 0;
+      });
+    }
+    return filtered;
+  }, [data, search, sortConfig]);
+
+  const requestSort = (key) => {
+    let direction = "ascending";
+    if (
+      sortConfig.key === key &&
+      sortConfig.direction === "ascending"
+    ) {
+      direction = "descending";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  return (
+    <div>
+      <input
+        type="text"
+        placeholder="Search symbol..."
+        className="mb-4 p-2 rounded border border-gray-600 bg-zinc-900 text-white w-full max-w-sm"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      <div className="overflow-x-auto rounded border border-gray-700">
+        <table className="min-w-full divide-y divide-gray-700">
+          <thead className="bg-gray-800 text-white">
+            <tr>
+              <th
+                className="cursor-pointer px-4 py-2 text-left"
+                onClick={() => requestSort("symbol")}
+              >
+                SYMBOL
+              </th>
+              <th
+                className="cursor-pointer px-4 py-2 text-right"
+                onClick={() => requestSort("scoreSmooth")}
+              >
+                MOMENTUM SCORE
+              </th>
+              <th
+                className="cursor-pointer px-4 py-2 text-right"
+                onClick={() => requestSort("score21")}
+              >
+                21D SCORE
+              </th>
+              <th
+                className="cursor-pointer px-4 py-2 text-right"
+                onClick={() => requestSort("score63")}
+              >
+                63D SCORE
+              </th>
+              <th className="px-4 py-2 text-center">TREND</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-700 text-white">
+            {filteredData.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="text-center py-4 text-gray-500">
+                  No stocks found.
+                </td>
+              </tr>
+            ) : (
+              filteredData.map(({ symbol, scoreSmooth, score21, score63 }) => (
+                <tr key={symbol}>
+                  <td className="px-4 py-2 font-semibold">{symbol}</td>
+                  <td className="px-4 py-2 text-right">{scoreSmooth.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-right">{score21.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-right">{score63.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-center">{getTrend(scoreSmooth)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function MomentumTabs() {
   const [strategy1, setStrategy1] = useState([]);
   const [strategy2, setStrategy2] = useState([]);
@@ -157,36 +261,26 @@ export default function MomentumTabs() {
     fetchMomentumScores();
   }, []);
 
-  const renderCards = (data) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {data.map((stock) => (
-        <div
-          key={stock.symbol}
-          className="border border-gray-700 rounded-xl p-4 bg-zinc-900 shadow-md"
-        >
-          <div className="text-xl font-bold text-green-400">{stock.symbol}</div>
-          <div className="text-sm text-white">21d Score: {stock.score21}</div>
-          <div className="text-sm text-white">63d Score: {stock.score63}</div>
-          <div className="text-lg text-yellow-400 font-semibold">
-            Momentum Score: {stock.scoreSmooth}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
   return (
     <Tabs defaultValue="strategy1" className="w-full">
       <TabsList>
-        <TabsTrigger value="strategy1">Strategy #1</TabsTrigger>
-        <TabsTrigger value="strategy2">Strategy #2</TabsTrigger>
-        <TabsTrigger value="strategy3">Strategy #3</TabsTrigger>
-        <TabsTrigger value="strategy4">Strategy #4</TabsTrigger>
+        <TabsTrigger value="strategy1">Close Based Momentum</TabsTrigger>
+        <TabsTrigger value="strategy2">True Range Momentum</TabsTrigger>
+        <TabsTrigger value="strategy3">Combined Momentum</TabsTrigger>
+        <TabsTrigger value="strategy4">Physics Based Momentum</TabsTrigger>
       </TabsList>
-      <TabsContent value="strategy1">{renderCards(strategy1)}</TabsContent>
-      <TabsContent value="strategy2">{renderCards(strategy2)}</TabsContent>
-      <TabsContent value="strategy3">{renderCards(strategy3)}</TabsContent>
-      <TabsContent value="strategy4">{renderCards(strategy4)}</TabsContent>
+      <TabsContent value="strategy1">
+        <MomentumTable data={strategy1} />
+      </TabsContent>
+      <TabsContent value="strategy2">
+        <MomentumTable data={strategy2} />
+      </TabsContent>
+      <TabsContent value="strategy3">
+        <MomentumTable data={strategy3} />
+      </TabsContent>
+      <TabsContent value="strategy4">
+        <MomentumTable data={strategy4} />
+      </TabsContent>
     </Tabs>
   );
 }
