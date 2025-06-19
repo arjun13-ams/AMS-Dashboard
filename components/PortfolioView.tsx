@@ -57,8 +57,8 @@ export default function PortfolioView() {
         });
 
         console.log(`Filtered data for ${strategy.key}:`, filtered.map(d => ({
-        date: d.rebalance_date,
-        value: d.portfolio_value
+          date: d.rebalance_date,
+          value: d.portfolio_value
         })));
 
         if (filtered.length < 2) continue;
@@ -72,7 +72,7 @@ export default function PortfolioView() {
 
         console.log(`Calculating metrics for ${strategy.key}`);
         console.log(`Start Value: ${startVal}, End Value: ${endVal}, Total Days: ${totalDays}`);
-        
+
         const years = totalDays / 365;
         const returns = values.map((v, i) => (i === 0 ? 0 : (v - values[i - 1]) / values[i - 1]));
 
@@ -94,7 +94,6 @@ export default function PortfolioView() {
         };
 
         console.log(`Metrics for ${strategy.key}:`, newMetrics[strategy.key]);
-        
       }
 
       setMetrics(newMetrics);
@@ -102,6 +101,9 @@ export default function PortfolioView() {
 
     fetchData();
   }, [calendarFilter]);
+
+  // Debug log for metrics state update
+  console.log("Current metrics state:", metrics);
 
   return (
     <div className="w-full space-y-6">
@@ -116,8 +118,23 @@ export default function PortfolioView() {
 
         {STRATEGIES.map((s) => (
           <TabsContent key={s.key} value={s.key}>
-            <div className="flex gap-4 items-center mb-4">
-              <pre>{JSON.stringify(metrics[s.key], null, 2)}</pre>
+            <div className="flex flex-col gap-4 mb-4">
+              <div
+                style={{
+                  backgroundColor: "white",
+                  color: "black",
+                  padding: "10px",
+                  borderRadius: "6px",
+                  overflowX: "auto",
+                  fontFamily: "monospace",
+                  fontSize: "0.9rem",
+                  maxHeight: "200px",
+                }}
+              >
+                <strong>Raw Metrics JSON for {s.label}:</strong>
+                <pre>{JSON.stringify(metrics[s.key], null, 2)}</pre>
+              </div>
+
               <span className="text-sm font-medium">Filter by FY:</span>
               <div className="flex gap-2">
                 {CALENDAR_OPTIONS.map((opt) => (
@@ -134,8 +151,6 @@ export default function PortfolioView() {
               </div>
             </div>
 
-            console.log("Rendering metrics for tab:", s.key, metrics[s.key]);
-            
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div className="p-4 bg-zinc-900 rounded">📈 CAGR: {metrics[s.key]?.cagr ?? "--"}%</div>
               <div className="p-4 bg-zinc-900 rounded">📉 Max DD: {metrics[s.key]?.maxDD ?? "--"}%</div>
