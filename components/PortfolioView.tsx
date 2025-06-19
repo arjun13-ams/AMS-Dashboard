@@ -133,6 +133,8 @@ export default function PortfolioView() {
               </div>
             </div>
 
+            console.log("Rendering metrics for tab:", s.key, metrics[s.key]);
+            
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div className="p-4 bg-zinc-900 rounded">📈 CAGR: {metrics[s.key]?.cagr ?? "--"}%</div>
               <div className="p-4 bg-zinc-900 rounded">📉 Max DD: {metrics[s.key]?.maxDD ?? "--"}%</div>
@@ -142,7 +144,6 @@ export default function PortfolioView() {
               <div className="p-4 bg-zinc-900 rounded">💰 Realized P&L: ₹--</div>
               <div className="p-4 bg-zinc-900 rounded">💼 Unrealized P&L: ₹--</div>
               <div className="p-4 bg-zinc-900 rounded">🎯 Win Rate: --%</div>
-              {console.log("Rendering metrics for tab:", s.key, metrics[s.key])}
             </div>
 
             <div className="mt-6 h-[300px] bg-zinc-800 rounded flex items-center justify-center text-gray-400">
