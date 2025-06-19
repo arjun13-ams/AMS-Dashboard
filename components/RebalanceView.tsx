@@ -66,13 +66,28 @@ export default function RebalanceTabs() {
             continue;
           }
 
-          const { data: previous, error: previousErr } = await supabase
+          // Step 1: Get previous max rebalance date before selectedDate
+          const { data: prevDates, error: prevDateError } = await supabase
             .from("weekly_rebalance")
-            .select("symbol")
+            .select("date")
             .eq("strategy", strategy)
             .lt("date", selectedDate)
             .order("date", { ascending: false })
             .limit(1);
+          
+          const previousDate = prevDates && prevDates.length > 0 ? prevDates[0].date : null;
+          
+          // Step 2: Get all symbols for previousDate and strategy
+          let previousSymbols = [];
+          if (previousDate) {
+            const { data: prevSymbols, error: previousErr } = await supabase
+              .from("weekly_rebalance")
+              .select("symbol")
+              .eq("strategy", strategy)
+              .eq("date", previousDate);
+          
+            previousSymbols = prevSymbols ? prevSymbols.map((r) => r.symbol) : [];
+          }
 
           if (previousErr) {
             console.error(`Error fetching previous data for ${strategy}:`, previousErr);
