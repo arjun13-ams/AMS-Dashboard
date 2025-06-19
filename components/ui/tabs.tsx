@@ -1,6 +1,5 @@
 import {
   useState,
-  useEffect,
   ReactNode,
   ReactElement,
   isValidElement,
@@ -36,7 +35,7 @@ export function Tabs({ defaultValue, value, children, className }: TabsProps) {
 
   const childrenArray = Array.isArray(children) ? children : [children];
 
-  childrenArray.forEach((child, index) => {
+  childrenArray.forEach((child) => {
     if (!isValidElement(child)) return;
 
     const element = child as ReactElement;
@@ -95,7 +94,7 @@ export function TabsTrigger({
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2 rounded ${
+      className={`px-4 py-2 rounded transition-colors ${
         isActive ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"
       }`}
     >
