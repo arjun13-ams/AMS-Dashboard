@@ -117,6 +117,7 @@ export default function PortfolioView() {
         {STRATEGIES.map((s) => (
           <TabsContent key={s.key} value={s.key}>
             <div className="flex gap-4 items-center mb-4">
+              <pre>{JSON.stringify(metrics[s.key], null, 2)}</pre>
               <span className="text-sm font-medium">Filter by FY:</span>
               <div className="flex gap-2">
                 {CALENDAR_OPTIONS.map((opt) => (
