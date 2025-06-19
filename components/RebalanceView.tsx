@@ -7,7 +7,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Strategy display labels and database keys
 const STRATEGIES = [
   { key: "close", label: "Close Based", supabaseKey: "Close-Based" },
   { key: "tr", label: "True Range", supabaseKey: "True-Range" },
@@ -19,6 +18,7 @@ export default function RebalanceTabs() {
   const [dates, setDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [logs, setLogs] = useState<Record<string, any>>({});
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchRebalanceDates = async () => {
@@ -42,7 +42,9 @@ export default function RebalanceTabs() {
     if (!selectedDate) return;
 
     const fetchLogs = async () => {
+      setLoading(true);
       const allLogs: Record<string, any> = {};
+
       for (const strat of STRATEGIES) {
         const { supabaseKey, key } = strat;
 
@@ -71,14 +73,21 @@ export default function RebalanceTabs() {
       }
 
       setLogs(allLogs);
+      setLoading(false);
     };
 
     fetchLogs();
   }, [selectedDate]);
 
   const renderLog = (strategyKey: string) => {
+    if (loading) {
+      return <div className="text-gray-400 p-4">⏳ Loading strategy data...</div>;
+    }
+
     const data = logs[strategyKey];
-    if (!data) return <div className="text-sm text-gray-400">Loading...</div>;
+    if (!data || (data.added.length === 0 && data.held.length === 0 && data.removed.length === 0)) {
+      return <div className="text-gray-400 p-4">⚠️ No data found for this strategy on selected date.</div>;
+    }
 
     return (
       <div className="space-y-4">
