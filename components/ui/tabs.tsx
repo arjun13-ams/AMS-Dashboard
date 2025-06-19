@@ -4,6 +4,7 @@ import {
   ReactElement,
   isValidElement,
   cloneElement,
+  JSXElementConstructor,
 } from "react";
 
 type TabsProps = {
@@ -48,7 +49,6 @@ export function Tabs({ defaultValue, value, children, className }: TabsProps) {
       const modifiedChildren = triggerChildren.map((trigger) => {
         if (!isValidElement(trigger)) return trigger;
 
-        // ✅ Cast trigger to known props type
         const triggerElement = trigger as ReactElement<TabsTriggerProps>;
         const triggerValue = triggerElement.props.value;
         const isActive = triggerValue === activeTab;
@@ -68,10 +68,12 @@ export function Tabs({ defaultValue, value, children, className }: TabsProps) {
 
       triggers.push(modifiedChildren);
     } else if (
-      (element.type === TabsContent || element.type?.name === "TabsContent") &&
-      element.props.value === activeTab
+      element.type === TabsContent ||
+      (typeof element.type === "function" && element.type.name === "TabsContent")
     ) {
-      contents.push(element);
+      if (element.props.value === activeTab) {
+        contents.push(element);
+      }
     }
   });
 
