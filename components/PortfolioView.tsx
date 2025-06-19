@@ -32,15 +32,23 @@ export default function PortfolioView() {
   const [selectedTab, setSelectedTab] = useState(STRATEGIES[0].key);
   const [metrics, setMetrics] = useState<any>({});
 
+  // Log state changes
+  console.log("PortfolioView Render: selectedTab =", selectedTab, "calendarFilter =", calendarFilter);
+  console.log("Current metrics state:", metrics);
+
   useEffect(() => {
     const fetchData = async () => {
+      console.log(`Fetching data for calendarFilter=${calendarFilter}`);
       const [startDate, endDate] = getDateRange(calendarFilter);
+      console.log("Date range:", startDate, endDate);
+
       const from = startDate ? dayjs(startDate) : null;
       const to = endDate ? dayjs(endDate) : null;
 
       const newMetrics: any = {};
 
       for (const strategy of STRATEGIES) {
+        console.log(`Querying supabase for strategy: ${strategy.key}`);
         let query = supabase
           .from("portfolio_history")
           .select("rebalance_date, portfolio_value")
@@ -48,23 +56,30 @@ export default function PortfolioView() {
           .order("rebalance_date", { ascending: true });
 
         const { data, error } = await query;
-        console.log(`Fetched data for strategy: ${strategy.key}`, { data, error });
-        if (error || !data) continue;
+
+        if (error) {
+          console.error(`Error fetching data for ${strategy.key}:`, error);
+          continue;
+        }
+        if (!data) {
+          console.warn(`No data returned for ${strategy.key}`);
+          continue;
+        }
+
+        console.log(`Raw data fetched for ${strategy.key}:`, data.length, "records");
 
         const filtered = data.filter((d) => {
           const date = dayjs(d.rebalance_date);
           return (!from || date.isAfter(from.subtract(1, "day"))) && (!to || date.isBefore(to.add(1, "day")));
         });
 
-        console.log(
-          `Filtered data for ${strategy.key}:`,
-          filtered.map((d) => ({
-            date: d.rebalance_date,
-            value: d.portfolio_value,
-          }))
-        );
+        console.log(`Filtered data for ${strategy.key}: ${filtered.length} records`);
+        console.table(filtered.map(d => ({ date: d.rebalance_date, value: d.portfolio_value })));
 
-        if (filtered.length < 2) continue;
+        if (filtered.length < 2) {
+          console.warn(`Not enough data points to calculate metrics for ${strategy.key}`);
+          continue;
+        }
 
         const values = filtered.map((r) => r.portfolio_value);
         const dates = filtered.map((r) => r.rebalance_date);
@@ -73,8 +88,7 @@ export default function PortfolioView() {
         const endVal = values[values.length - 1];
         const totalDays = dayjs(dates[values.length - 1]).diff(dayjs(dates[0]), "day");
 
-        console.log(`Calculating metrics for ${strategy.key}`);
-        console.log(`Start Value: ${startVal}, End Value: ${endVal}, Total Days: ${totalDays}`);
+        console.log(`Calculating metrics for ${strategy.key} from ${dates[0]} to ${dates[dates.length - 1]} (${totalDays} days)`);
 
         const years = totalDays / 365;
         const returns = values.map((v, i) => (i === 0 ? 0 : (v - values[i - 1]) / values[i - 1]));
@@ -96,7 +110,7 @@ export default function PortfolioView() {
           sharpe: sharpe.toFixed(2),
         };
 
-        console.log(`Metrics for ${strategy.key}:`, newMetrics[strategy.key]);
+        console.log(`Calculated metrics for ${strategy.key}:`, newMetrics[strategy.key]);
       }
 
       setMetrics(newMetrics);
@@ -105,15 +119,20 @@ export default function PortfolioView() {
     fetchData();
   }, [calendarFilter]);
 
-  // Debug log for metrics state update
-  console.log("Current metrics state:", metrics);
-
   return (
     <div className="w-full space-y-6">
       <Tabs defaultValue={selectedTab} value={selectedTab} className="w-full">
         <TabsList>
           {STRATEGIES.map((s) => (
-            <TabsTrigger key={s.key} value={s.key} isActive={selectedTab === s.key} onClick={() => setSelectedTab(s.key)}>
+            <TabsTrigger
+              key={s.key}
+              value={s.key}
+              isActive={selectedTab === s.key}
+              onClick={() => {
+                console.log(`TabsTrigger clicked: ${s.key}`);
+                setSelectedTab(s.key);
+              }}
+            >
               {s.label}
             </TabsTrigger>
           ))}
@@ -143,7 +162,10 @@ export default function PortfolioView() {
                 {CALENDAR_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
-                    onClick={() => setCalendarFilter(opt.value)}
+                    onClick={() => {
+                      console.log(`Calendar filter changed: ${opt.value}`);
+                      setCalendarFilter(opt.value);
+                    }}
                     className={`px-3 py-1 rounded text-xs border ${
                       calendarFilter === opt.value ? "bg-green-800 border-green-500" : "bg-zinc-800 border-gray-600"
                     }`}
