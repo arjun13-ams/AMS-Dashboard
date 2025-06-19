@@ -1,5 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { createClient } from "@supabase/supabase-js";
+import dayjs from "dayjs";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const STRATEGIES = [
   { key: "Close-Based", label: "Close-Based" },
@@ -14,16 +21,81 @@ const CALENDAR_OPTIONS = [
   { label: "All", value: "All" },
 ];
 
+function getDateRange(fy: string) {
+  if (fy === "FY24") return ["2023-04-01", "2024-03-31"];
+  if (fy === "FY25") return ["2024-04-01", "2025-03-31"];
+  return [null, null];
+}
+
 export default function PortfolioView() {
-  const [calendarFilter, setCalendarFilter] = useState("All");
-  
+  const [calendarFilter, setCalendarFilter] = useState("FY25");
+  const [selectedTab, setSelectedTab] = useState(STRATEGIES[0].key);
+  const [metrics, setMetrics] = useState<any>({});
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const [startDate, endDate] = getDateRange(calendarFilter);
+      const from = startDate ? dayjs(startDate) : null;
+      const to = endDate ? dayjs(endDate) : null;
+
+      const newMetrics: any = {};
+
+      for (const strategy of STRATEGIES) {
+        let query = supabase
+          .from("portfolio_history")
+          .select("rebalance_date, portfolio_value")
+          .eq("strategy", strategy.key)
+          .order("rebalance_date", { ascending: true });
+
+        const { data, error } = await query;
+        if (error || !data) continue;
+
+        const filtered = data.filter((d) => {
+          const date = dayjs(d.rebalance_date);
+          return (!from || date.isAfter(from.subtract(1, "day"))) && (!to || date.isBefore(to.add(1, "day")));
+        });
+
+        if (filtered.length < 2) continue;
+
+        const values = filtered.map((r) => r.portfolio_value);
+        const dates = filtered.map((r) => r.rebalance_date);
+
+        const startVal = values[0];
+        const endVal = values[values.length - 1];
+        const totalDays = dayjs(dates[values.length - 1]).diff(dayjs(dates[0]), 'day');
+        const years = totalDays / 365;
+        const returns = values.map((v, i) => (i === 0 ? 0 : (v - values[i - 1]) / values[i - 1]));
+
+        const cagr = ((endVal / startVal) ** (1 / years) - 1) * 100;
+        const absoluteReturn = ((endVal - startVal) / startVal) * 100;
+        const maxVal = Math.max(...values);
+        const maxDrawdown = ((Math.min(...values) - maxVal) / maxVal) * 100;
+        const currentDrawdown = ((endVal - maxVal) / maxVal) * 100;
+        const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+        const std = Math.sqrt(returns.reduce((a, b) => a + (b - mean) ** 2, 0) / returns.length);
+        const sharpe = std === 0 ? 0 : (mean * 52) / std;
+
+        newMetrics[strategy.key] = {
+          cagr: cagr.toFixed(2),
+          absReturn: absoluteReturn.toFixed(2),
+          maxDD: Math.abs(maxDrawdown).toFixed(2),
+          currentDD: Math.abs(currentDrawdown).toFixed(2),
+          sharpe: sharpe.toFixed(2),
+        };
+      }
+
+      setMetrics(newMetrics);
+    };
+
+    fetchData();
+  }, [calendarFilter]);
+
   return (
     <div className="w-full space-y-6">
-      {/* Strategy Tabs */}
-      <Tabs defaultValue="Close-Based" className="w-full">
+      <Tabs defaultValue={selectedTab} className="w-full">
         <TabsList>
           {STRATEGIES.map((s) => (
-            <TabsTrigger key={s.key} value={s.key}>
+            <TabsTrigger key={s.key} value={s.key} isActive={selectedTab === s.key} onClick={() => setSelectedTab(s.key)}>
               {s.label}
             </TabsTrigger>
           ))}
@@ -31,7 +103,6 @@ export default function PortfolioView() {
 
         {STRATEGIES.map((s) => (
           <TabsContent key={s.key} value={s.key}>
-            {/* Calendar Filter */}
             <div className="flex gap-4 items-center mb-4">
               <span className="text-sm font-medium">Filter by FY:</span>
               <div className="flex gap-2">
@@ -40,9 +111,7 @@ export default function PortfolioView() {
                     key={opt.value}
                     onClick={() => setCalendarFilter(opt.value)}
                     className={`px-3 py-1 rounded text-xs border ${
-                      calendarFilter === opt.value
-                        ? "bg-green-800 border-green-500"
-                        : "bg-zinc-800 border-gray-600"
+                      calendarFilter === opt.value ? "bg-green-800 border-green-500" : "bg-zinc-800 border-gray-600"
                     }`}
                   >
                     {opt.label}
@@ -51,24 +120,21 @@ export default function PortfolioView() {
               </div>
             </div>
 
-            {/* Metrics Placeholder */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div className="p-4 bg-zinc-900 rounded">📈 CAGR: --%</div>
-              <div className="p-4 bg-zinc-900 rounded">📉 Max DD: --%</div>
-              <div className="p-4 bg-zinc-900 rounded">🔻 Current DD: --%</div>
-              <div className="p-4 bg-zinc-900 rounded">📊 Return %: --%</div>
-              <div className="p-4 bg-zinc-900 rounded">⚖️ Sharpe: --</div>
+              <div className="p-4 bg-zinc-900 rounded">📈 CAGR: {metrics[s.key]?.cagr ?? "--"}%</div>
+              <div className="p-4 bg-zinc-900 rounded">📉 Max DD: {metrics[s.key]?.maxDD ?? "--"}%</div>
+              <div className="p-4 bg-zinc-900 rounded">🔻 Current DD: {metrics[s.key]?.currentDD ?? "--"}%</div>
+              <div className="p-4 bg-zinc-900 rounded">📊 Return %: {metrics[s.key]?.absReturn ?? "--"}%</div>
+              <div className="p-4 bg-zinc-900 rounded">⚖️ Sharpe: {metrics[s.key]?.sharpe ?? "--"}</div>
               <div className="p-4 bg-zinc-900 rounded">💰 Realized P&L: ₹--</div>
               <div className="p-4 bg-zinc-900 rounded">💼 Unrealized P&L: ₹--</div>
               <div className="p-4 bg-zinc-900 rounded">🎯 Win Rate: --%</div>
             </div>
 
-            {/* Graph Placeholder */}
             <div className="mt-6 h-[300px] bg-zinc-800 rounded flex items-center justify-center text-gray-400">
               Portfolio Value Graph Coming Soon
             </div>
 
-            {/* Trade Journal Placeholder */}
             <div className="mt-6">
               <div className="mb-2 flex justify-between items-center">
                 <h3 className="text-lg font-semibold">📋 Trade Journal</h3>
