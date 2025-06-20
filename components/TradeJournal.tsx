@@ -22,7 +22,7 @@ type Trade = {
 
 type TradeJournalProps = {
   strategy: string;
-  statusFilter: 'Open' | 'Closed' | 'All';
+  statusFilter: 'open' | 'closed' | 'all';
 };
 
 export default function TradeJournal({ strategy, statusFilter }: TradeJournalProps) {
@@ -37,7 +37,7 @@ export default function TradeJournal({ strategy, statusFilter }: TradeJournalPro
         .select('*')
         .eq('strategy', strategy);
 
-      if (statusFilter !== 'All') {
+      if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
       }
 
