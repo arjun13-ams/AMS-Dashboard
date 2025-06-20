@@ -1,21 +1,23 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { createChart } from "lightweight-charts";
+import { createChart, IChartApi, ISeriesApi, HistogramData } from "lightweight-charts";
 import { supabase } from "../lib/supabase";
 
 export default function ChartView() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
-  const candleSeriesRef = useRef<any>(null);
-  const ema10SeriesRef = useRef<any>(null);
-  const ema21SeriesRef = useRef<any>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const ema10SeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const ema21SeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
   const [symbols, setSymbols] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredSymbols, setFilteredSymbols] = useState<string[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string>("TCS");
 
+  // Fetch symbols on mount
   useEffect(() => {
     async function fetchSymbols() {
       const { data, error } = await supabase.from("cnx500_stock_list").select("symbol");
@@ -28,15 +30,17 @@ export default function ChartView() {
     fetchSymbols();
   }, []);
 
+  // Filter symbols on search term change
   useEffect(() => {
     const filtered = symbols.filter((s) => s.toLowerCase().includes(searchTerm.toLowerCase()));
     setFilteredSymbols(filtered);
   }, [searchTerm, symbols]);
 
+  // Initialize chart and series when selectedSymbol changes
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    // Clear previous chart instance
+    // Remove existing chart if any
     if (chartRef.current) {
       chartRef.current.remove();
     }
@@ -46,19 +50,38 @@ export default function ChartView() {
       grid: { vertLines: { color: "#222" }, horzLines: { color: "#222" } },
       timeScale: { timeVisible: true },
       height: 500,
+      rightPriceScale: { scaleMargins: { top: 0.3, bottom: 0.25 } },
+      // we will create separate scale for volume
     });
 
     chartRef.current = chart;
+
+    // Add candlestick series
     candleSeriesRef.current = chart.addCandlestickSeries();
+
+    // Add volume histogram below candles with own price scale on left
+    volumeSeriesRef.current = chart.addHistogramSeries({
+      priceScaleId: '',  // separate scale
+      scaleMargins: { top: 0.8, bottom: 0 }, // small portion at bottom for volume
+      color: '#26a69a',
+      priceFormat: {
+        type: 'volume',
+      },
+      overlay: false,
+    });
+
+    // Add EMA line series
     ema10SeriesRef.current = chart.addLineSeries({ color: "orange", lineWidth: 1 });
     ema21SeriesRef.current = chart.addLineSeries({ color: "cyan", lineWidth: 1 });
+
   }, [selectedSymbol]);
 
+  // Fetch OHLCV data and update chart
   useEffect(() => {
     async function fetchData() {
       const { data, error } = await supabase
         .from("ohlcv_data")
-        .select("date, open, high, low, close")
+        .select("date, open, high, low, close, volume")
         .eq("symbol", selectedSymbol)
         .order("date");
 
@@ -74,6 +97,17 @@ export default function ChartView() {
 
       candleSeriesRef.current?.setData(candleData);
 
+      // Volume data for histogram
+      // Use green if close >= open, else red
+      const volumeData: HistogramData[] = data.map((row) => ({
+        time: row.date,
+        value: row.volume,
+        color: row.close >= row.open ? 'rgba(38, 166, 154, 0.8)' : 'rgba(255, 82, 82, 0.8)',
+      }));
+
+      volumeSeriesRef.current?.setData(volumeData);
+
+      // EMA Calculation
       const ema = (period: number) => {
         const k = 2 / (period + 1);
         const result: { time: string; value: number }[] = [];
