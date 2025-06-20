@@ -32,6 +32,10 @@ export default function TradeJournal({ strategy, statusFilter }: TradeJournalPro
   useEffect(() => {
     const fetchTrades = async () => {
       setLoading(true);
+      console.log('Fetching trades with parameters:', {
+        strategy,
+        statusFilter,
+      });
       let query = supabase
         .from('trade_journal')
         .select('*')
@@ -40,6 +44,8 @@ export default function TradeJournal({ strategy, statusFilter }: TradeJournalPro
       if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
       }
+
+      console.log('Supabase query object:', query);
 
       const { data, error } = await query.order('entry_date', { ascending: false });
 
