@@ -5,6 +5,16 @@ import PortfolioTabs from '../components/ui/PortfolioTabs';
 import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
 
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+} from 'recharts';
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -32,6 +42,8 @@ function getDateRange(fy: string) {
 export default function PortfolioView() {
   const [calendarFilter, setCalendarFilter] = useState('FY25');
   const [metrics, setMetrics] = useState<any>({});
+  const [portfolioData, setPortfolioData] = useState<{ date: string; value: number }[]>([]);
+  const [activeStrategy, setActiveStrategy] = useState(STRATEGIES[0].key);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,6 +51,9 @@ export default function PortfolioView() {
       const from = startDate ? dayjs(startDate) : null;
       const to = endDate ? dayjs(endDate) : null;
       const newMetrics: any = {};
+
+      // Fetch portfolio history only for the active strategy for graph
+      let graphData: { date: string; value: number }[] = [];
 
       for (const strategy of STRATEGIES) {
         let query = supabase
@@ -82,13 +97,22 @@ export default function PortfolioView() {
           currentDD: Math.abs(currentDrawdown).toFixed(2),
           sharpe: sharpe.toFixed(2),
         };
+
+        // Save data for active strategy for graph
+        if (strategy.key === activeStrategy) {
+          graphData = filtered.map((r) => ({
+            date: dayjs(r.rebalance_date).format('YYYY-MM-DD'),
+            value: r.portfolio_value,
+          }));
+        }
       }
 
       setMetrics(newMetrics);
+      setPortfolioData(graphData);
     };
 
     fetchData();
-  }, [calendarFilter]);
+  }, [calendarFilter, activeStrategy]);
 
   const tabs = STRATEGIES.map((s) => ({
     label: s.label,
@@ -122,8 +146,22 @@ export default function PortfolioView() {
           <div className="p-4 bg-zinc-900 rounded text-white">🎯 Win Rate: --%</div>
         </div>
 
-        <div className="mt-6 h-[300px] bg-zinc-800 rounded flex items-center justify-center text-gray-400">
-          Portfolio Value Graph Coming Soon
+        <div className="mt-6 h-[300px] bg-zinc-800 rounded p-2">
+          {portfolioData.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-gray-400">
+              No portfolio data to display.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={portfolioData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} domain={['dataMin', 'dataMax']} />
+                <Tooltip />
+                <Line type="monotone" dataKey="value" stroke="#0077b6" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         <div className="mt-6">
@@ -147,7 +185,11 @@ export default function PortfolioView() {
 
   return (
     <div className="w-full p-4 bg-white text-black min-h-screen">
-      <PortfolioTabs tabs={tabs} defaultValue={STRATEGIES[0].key} />
+      <PortfolioTabs
+        tabs={tabs}
+        defaultValue={STRATEGIES[0].key}
+        onTabChange={(val) => setActiveStrategy(val)}
+      />
     </div>
   );
 }
