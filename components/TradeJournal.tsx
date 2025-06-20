@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import dayjs from 'dayjs';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,6 +18,7 @@ type Trade = {
   exit_price: number | null;
   quantity: number;
   return_pct: number | null;
+  holding_days: number | null;
   status: string;
 };
 
@@ -28,21 +30,18 @@ type TradeJournalProps = {
 export default function TradeJournal({ strategy, statusFilter }: TradeJournalProps) {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(false);
-  const [filters, setFilters] = useState<any>({});
-  const [sortKey, setSortKey] = useState<string>('trade_date');
-  const [sortAsc, setSortAsc] = useState<boolean>(false);
+  const [filters, setFilters] = useState({ symbol: '', status: '' });
 
   useEffect(() => {
     const fetchTrades = async () => {
       setLoading(true);
-
       let query = supabase
         .from('trade_journal')
-        .select('id, symbol, trade_date, exit_date, price, exit_price, quantity, return_pct, status')
+        .select('*')
         .eq('strategy', strategy);
 
       if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter.toLowerCase());
+        query = query.eq('status', statusFilter);
       }
 
       const { data, error } = await query.order('trade_date', { ascending: false });
@@ -53,7 +52,6 @@ export default function TradeJournal({ strategy, statusFilter }: TradeJournalPro
       } else {
         setTrades(data || []);
       }
-
       setLoading(false);
     };
 
@@ -61,77 +59,62 @@ export default function TradeJournal({ strategy, statusFilter }: TradeJournalPro
   }, [strategy, statusFilter]);
 
   const filteredTrades = trades.filter((trade) => {
-    return Object.entries(filters).every(([key, val]) => {
-      if (!val) return true;
-      return String((trade as any)[key]).toLowerCase().includes(String(val).toLowerCase());
-    });
+    return trade.symbol.toLowerCase().includes(filters.symbol.toLowerCase());
   });
 
-  const sortedTrades = [...filteredTrades].sort((a, b) => {
-    const aVal = (a as any)[sortKey];
-    const bVal = (b as any)[sortKey];
-    if (aVal === bVal) return 0;
-    return (aVal > bVal ? 1 : -1) * (sortAsc ? 1 : -1);
-  });
+  const today = dayjs();
 
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters({ ...filters, [key]: value });
-  };
-
-  const handleSort = (key: string) => {
-    if (sortKey === key) setSortAsc(!sortAsc);
-    else {
-      setSortKey(key);
-      setSortAsc(true);
-    }
-  };
-
-  if (loading) return <div className="text-gray-300">Loading trades...</div>;
-  if (!sortedTrades.length) return <div className="text-gray-300">No trades found for <b>{strategy}</b> with status <b>{statusFilter}</b></div>;
+  if (loading) return <div>Loading trades...</div>;
 
   return (
-    <div className="overflow-x-auto">
+    <div>
+      <div className="flex gap-4 mb-2">
+        <input
+          type="text"
+          placeholder="Filter by symbol"
+          value={filters.symbol}
+          onChange={(e) => setFilters({ ...filters, symbol: e.target.value })}
+          className="px-2 py-1 border rounded text-sm"
+        />
+      </div>
       <table className="w-full text-sm text-left border-collapse border border-gray-700">
         <thead>
           <tr>
-            {['symbol', 'trade_date', 'exit_date', 'price', 'exit_price', 'quantity', 'return_pct', 'status'].map((col) => (
-              <th key={col} className="border border-gray-700 p-2 cursor-pointer" onClick={() => handleSort(col)}>
-                {col.replace('_', ' ').toUpperCase()}
-              </th>
-            ))}
-          </tr>
-          <tr>
-            {['symbol', 'trade_date', 'exit_date', 'price', 'exit_price', 'quantity', 'return_pct', 'status'].map((col) => (
-              <th key={col} className="border border-gray-700 p-1">
-                <input
-                  type="text"
-                  placeholder="Filter"
-                  className="w-full text-xs p-1 bg-gray-800 text-white rounded"
-                  value={filters[col] || ''}
-                  onChange={(e) => handleFilterChange(col, e.target.value)}
-                />
-              </th>
-            ))}
+            <th className="border border-gray-700 p-2">Symbol</th>
+            <th className="border border-gray-700 p-2">Entry Date</th>
+            <th className="border border-gray-700 p-2">Exit Date</th>
+            <th className="border border-gray-700 p-2">Entry Price</th>
+            <th className="border border-gray-700 p-2">Exit Price</th>
+            <th className="border border-gray-700 p-2">Quantity</th>
+            <th className="border border-gray-700 p-2">Holding Days</th>
+            <th className="border border-gray-700 p-2">Return %</th>
+            <th className="border border-gray-700 p-2">Status</th>
           </tr>
         </thead>
         <tbody>
-          {sortedTrades.map((trade) => {
-            let rowColor = 'bg-white';
-            if (trade.status === 'closed') {
-              if (trade.return_pct != null && trade.return_pct >= 0) rowColor = 'bg-green-100';
-              else rowColor = 'bg-red-100';
-            }
+          {filteredTrades.map((trade) => {
+            const holdingDays = trade.status === 'open'
+              ? today.diff(dayjs(trade.trade_date), 'day')
+              : trade.holding_days;
+
+            const rowBg =
+              trade.status === 'closed'
+                ? trade.return_pct !== null && trade.return_pct >= 0
+                  ? 'bg-green-100'
+                  : 'bg-red-100'
+                : 'bg-white';
 
             return (
-              <tr key={trade.id} className={rowColor}>
+              <tr key={trade.id} className={`${rowBg}`}>
                 <td className="border border-gray-700 p-2">{trade.symbol}</td>
                 <td className="border border-gray-700 p-2">{trade.trade_date}</td>
                 <td className="border border-gray-700 p-2">{trade.exit_date ?? '-'}</td>
                 <td className="border border-gray-700 p-2">{trade.price.toFixed(2)}</td>
                 <td className="border border-gray-700 p-2">{trade.exit_price?.toFixed(2) ?? '-'}</td>
                 <td className="border border-gray-700 p-2">{trade.quantity}</td>
-                <td className="border border-gray-700 p-2">{trade.return_pct?.toFixed(2) ?? '-'}%</td>
-                <td className="border border-gray-700 p-2 capitalize">{trade.status}</td>
+                <td className="border border-gray-700 p-2">{holdingDays ?? '-'}</td>
+                <td className="border border-gray-700 p-2">{trade.return_pct?.toFixed(2) ?? '-'}</td>
+                <td className="border border-gray-700 p-2">{trade.status}</td>
               </tr>
             );
           })}
