@@ -1,116 +1,80 @@
-import {
-  useState,
-  ReactNode,
-  ReactElement,
-  isValidElement,
-  cloneElement,
-} from "react";
+import { ReactNode, useState } from "react";
 
 type TabsProps = {
   defaultValue: string;
-  value?: string;
   children: ReactNode;
-  className?: string;
 };
 
 type TabsTriggerProps = {
   value: string;
   children: ReactNode;
-  isActive?: boolean;
-  onClick?: () => void;
+  onClick: () => void;
+  isActive: boolean;
 };
 
 type TabsContentProps = {
   value: string;
+  activeTab: string;
   children: ReactNode;
 };
 
-export function Tabs({ defaultValue, value, children, className }: TabsProps) {
-  const isControlled = value !== undefined;
-  const [internalTab, setInternalTab] = useState(defaultValue);
-  const activeTab = isControlled ? value : internalTab;
-
-  console.log("Tabs: activeTab =", activeTab);
-
-  const triggers: ReactNode[] = [];
-  const contents: ReactNode[] = [];
+export function Tabs({ defaultValue, children }: TabsProps) {
+  const [activeTab, setActiveTab] = useState(defaultValue);
 
   const childrenArray = Array.isArray(children) ? children : [children];
 
-  childrenArray.forEach((child, index) => {
-    if (!isValidElement(child)) return;
-
-    const element = child as ReactElement;
-
-    console.log(`Tabs: processing child[${index}] type:`, element.type);
-
-    if (element.type === TabsList) {
-      console.log("Tabs: Found TabsList with children:", element.props.children);
-      const triggerChildren = Array.isArray(element.props.children)
-        ? element.props.children
-        : [element.props.children];
-
-      const modifiedChildren = triggerChildren.map((trigger, i) => {
-        if (!isValidElement(trigger)) return trigger;
-
-        const triggerElement = trigger as ReactElement<TabsTriggerProps>;
-        const triggerValue = triggerElement.props.value;
-        const isActive = triggerValue === activeTab;
-
-        console.log(`Tabs: processing trigger[${i}] with value: ${triggerValue}, isActive: ${isActive}`);
-
-        const handleClick = () => {
-          console.log("TabsTrigger clicked:", triggerValue);
-          if (!isControlled) {
-            setInternalTab(triggerValue);
-          }
-          triggerElement.props.onClick?.();
-        };
-
-        return cloneElement(triggerElement, {
-          isActive,
-          onClick: handleClick,
-        });
-      });
-
-      triggers.push(modifiedChildren);
-    } else if (
-      element.type === TabsContent ||
-      (typeof element.type === "function" && element.type.name === "TabsContent")
-    ) {
-      console.log("Tabs: Checking TabsContent with value:", element.props.value);
-      if (element.props.value === activeTab) {
-        console.log("Tabs: Adding TabsContent for activeTab:", activeTab);
-        contents.push(element);
-      }
-    } else {
-      console.log("Tabs: Skipping child at index", index);
-    }
-  });
-
   return (
-    <div className={className}>
-      <div className="flex gap-2 mb-4">{triggers.flat()}</div>
-      <div>{contents}</div>
+    <div>
+      {childrenArray.map((child: any, i: number) => {
+        if (child.type === TabsList) {
+          return (
+            <TabsList key={i}>
+              {child.props.children.map((trigger: any, j: number) => (
+                <TabsTrigger
+                  key={j}
+                  value={trigger.props.value}
+                  onClick={() => setActiveTab(trigger.props.value)}
+                  isActive={activeTab === trigger.props.value}
+                >
+                  {trigger.props.children}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          );
+        }
+
+        if (child.type === TabsContent) {
+          return (
+            <TabsContent
+              key={i}
+              value={child.props.value}
+              activeTab={activeTab}
+            >
+              {child.props.children}
+            </TabsContent>
+          );
+        }
+
+        return null;
+      })}
     </div>
   );
 }
 
 export function TabsList({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  return <div className="flex gap-2 mb-4">{children}</div>;
 }
 
 export function TabsTrigger({
   value,
-  children,
-  isActive,
   onClick,
+  isActive,
+  children,
 }: TabsTriggerProps) {
-  console.log(`TabsTrigger render: value=${value}, isActive=${isActive}`);
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2 rounded transition-colors ${
+      className={`px-4 py-2 rounded font-medium transition-colors ${
         isActive ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"
       }`}
     >
@@ -119,7 +83,11 @@ export function TabsTrigger({
   );
 }
 
-export function TabsContent({ value, children }: TabsContentProps) {
-  console.log("TabsContent render for value:", value);
-  return <div>{children}</div>;
+export function TabsContent({
+  value,
+  activeTab,
+  children,
+}: TabsContentProps) {
+  if (value !== activeTab) return null;
+  return <div className="mt-4">{children}</div>;
 }
