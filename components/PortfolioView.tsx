@@ -123,7 +123,7 @@ export default function PortfolioView() {
 
   return (
     <div className="w-full space-y-6">
-      {/* Tab click message bar */}
+      {/* Display tab click message here */}
       <div
         style={{
           backgroundColor: "#0077b6",
@@ -158,99 +158,99 @@ export default function PortfolioView() {
         </TabsList>
 
         {STRATEGIES.map((s) => (
-          <TabsContent
-            key={s.key}
-            value={s.key}
-            style={{
-              border: "2px solid #0077b6",
-              backgroundColor: "#f0f9ff",
-              color: "#000",
-              minHeight: "400px",
-              padding: "15px",
-              overflowY: "auto",
-            }}
-          >
-            {/* Debug message inside each tab content */}
+          <TabsContent key={s.key} value={s.key}>
             <div
               style={{
-                padding: "10px",
-                backgroundColor: selectedTab === s.key ? "#e0f7fa" : "transparent",
-                marginBottom: "10px",
-                borderRadius: "6px",
-                border: selectedTab === s.key ? "1px solid #0077b6" : "none",
-                fontWeight: "bold",
-                color: selectedTab === s.key ? "#0077b6" : "#666",
+                border: "2px solid #0077b6",
+                backgroundColor: "#f0f9ff",
+                color: "#000",
+                minHeight: "400px",
+                padding: "15px",
+                overflowY: "auto",
               }}
             >
-              Tab <strong>{s.label}</strong> is selected: {selectedTab === s.key ? "YES" : "NO"}
-            </div>
-
-            <div className="flex flex-col gap-4 mb-4">
+              {/* Debug message inside each tab content */}
               <div
                 style={{
-                  backgroundColor: "white",
-                  color: "black",
                   padding: "10px",
+                  backgroundColor: selectedTab === s.key ? "#e0f7fa" : "transparent",
+                  marginBottom: "10px",
                   borderRadius: "6px",
-                  overflowX: "auto",
-                  fontFamily: "monospace",
-                  fontSize: "0.9rem",
-                  maxHeight: "200px",
+                  border: selectedTab === s.key ? "1px solid #0077b6" : "none",
+                  fontWeight: "bold",
+                  color: selectedTab === s.key ? "#0077b6" : "#666",
                 }}
               >
-                <strong>Raw Metrics JSON for {s.label}:</strong>
-                <pre>{JSON.stringify(metrics[s.key], null, 2)}</pre>
+                Tab <strong>{s.label}</strong> is selected: {selectedTab === s.key ? "YES" : "NO"}
               </div>
 
-              <span className="text-sm font-medium">Filter by FY:</span>
-              <div className="flex gap-2">
-                {CALENDAR_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => {
-                      console.log(`Calendar filter changed: ${opt.value}`);
-                      setCalendarFilter(opt.value);
-                    }}
-                    className={`px-3 py-1 rounded text-xs border ${
-                      calendarFilter === opt.value
-                        ? "bg-green-800 border-green-500"
-                        : "bg-zinc-800 border-gray-600"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+              <div className="flex flex-col gap-4 mb-4">
+                <div
+                  style={{
+                    backgroundColor: "white",
+                    color: "black",
+                    padding: "10px",
+                    borderRadius: "6px",
+                    overflowX: "auto",
+                    fontFamily: "monospace",
+                    fontSize: "0.9rem",
+                    maxHeight: "200px",
+                  }}
+                >
+                  <strong>Raw Metrics JSON for {s.label}:</strong>
+                  <pre>{JSON.stringify(metrics[s.key], null, 2)}</pre>
+                </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div className="p-4 bg-zinc-900 rounded">📈 CAGR: {metrics[s.key]?.cagr ?? "--"}%</div>
-              <div className="p-4 bg-zinc-900 rounded">📉 Max DD: {metrics[s.key]?.maxDD ?? "--"}%</div>
-              <div className="p-4 bg-zinc-900 rounded">🔻 Current DD: {metrics[s.key]?.currentDD ?? "--"}%</div>
-              <div className="p-4 bg-zinc-900 rounded">📊 Return %: {metrics[s.key]?.absReturn ?? "--"}%</div>
-              <div className="p-4 bg-zinc-900 rounded">⚖️ Sharpe: {metrics[s.key]?.sharpe ?? "--"}</div>
-              <div className="p-4 bg-zinc-900 rounded">💰 Realized P&L: ₹--</div>
-              <div className="p-4 bg-zinc-900 rounded">💼 Unrealized P&L: ₹--</div>
-              <div className="p-4 bg-zinc-900 rounded">🎯 Win Rate: --%</div>
-            </div>
-
-            <div className="mt-6 h-[300px] bg-zinc-800 rounded flex items-center justify-center text-gray-400">
-              Portfolio Value Graph Coming Soon
-            </div>
-
-            <div className="mt-6">
-              <div className="mb-2 flex justify-between items-center">
-                <h3 className="text-lg font-semibold">📋 Trade Journal</h3>
-                <div>
-                  <select className="bg-zinc-800 border border-gray-600 rounded text-sm px-2 py-1">
-                    <option>Open</option>
-                    <option>Closed</option>
-                    <option>All</option>
-                  </select>
+                <span className="text-sm font-medium">Filter by FY:</span>
+                <div className="flex gap-2">
+                  {CALENDAR_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        console.log(`Calendar filter changed: ${opt.value}`);
+                        setCalendarFilter(opt.value);
+                      }}
+                      className={`px-3 py-1 rounded text-xs border ${
+                        calendarFilter === opt.value
+                          ? "bg-green-800 border-green-500"
+                          : "bg-zinc-800 border-gray-600"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div className="bg-zinc-900 p-4 rounded text-gray-400 text-center">
-                Trade Journal Table Coming Soon...
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="p-4 bg-zinc-900 rounded">📈 CAGR: {metrics[s.key]?.cagr ?? "--"}%</div>
+                <div className="p-4 bg-zinc-900 rounded">📉 Max DD: {metrics[s.key]?.maxDD ?? "--"}%</div>
+                <div className="p-4 bg-zinc-900 rounded">🔻 Current DD: {metrics[s.key]?.currentDD ?? "--"}%</div>
+                <div className="p-4 bg-zinc-900 rounded">📊 Return %: {metrics[s.key]?.absReturn ?? "--"}%</div>
+                <div className="p-4 bg-zinc-900 rounded">⚖️ Sharpe: {metrics[s.key]?.sharpe ?? "--"}</div>
+                <div className="p-4 bg-zinc-900 rounded">💰 Realized P&L: ₹--</div>
+                <div className="p-4 bg-zinc-900 rounded">💼 Unrealized P&L: ₹--</div>
+                <div className="p-4 bg-zinc-900 rounded">🎯 Win Rate: --%</div>
+              </div>
+
+              <div className="mt-6 h-[300px] bg-zinc-800 rounded flex items-center justify-center text-gray-400">
+                Portfolio Value Graph Coming Soon
+              </div>
+
+              <div className="mt-6">
+                <div className="mb-2 flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">📋 Trade Journal</h3>
+                  <div>
+                    <select className="bg-zinc-800 border border-gray-600 rounded text-sm px-2 py-1">
+                      <option>Open</option>
+                      <option>Closed</option>
+                      <option>All</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="bg-zinc-900 p-4 rounded text-gray-400 text-center">
+                  Trade Journal Table Coming Soon...
+                </div>
               </div>
             </div>
           </TabsContent>
