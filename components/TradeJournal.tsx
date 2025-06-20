@@ -28,12 +28,13 @@ type TradeJournalProps = {
 export default function TradeJournal({ strategy, statusFilter }: TradeJournalProps) {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(false);
+  const [filters, setFilters] = useState<any>({});
+  const [sortKey, setSortKey] = useState<string>('trade_date');
+  const [sortAsc, setSortAsc] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchTrades = async () => {
       setLoading(true);
-
-      console.log('📦 Fetching trades for:', { strategy, statusFilter });
 
       let query = supabase
         .from('trade_journal')
@@ -41,16 +42,15 @@ export default function TradeJournal({ strategy, statusFilter }: TradeJournalPro
         .eq('strategy', strategy);
 
       if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter.toLowerCase()); // lowercase match for DB
+        query = query.eq('status', statusFilter.toLowerCase());
       }
 
       const { data, error } = await query.order('trade_date', { ascending: false });
 
       if (error) {
-        console.error('❌ Error fetching trades:', error);
+        console.error('Error fetching trades:', error);
         setTrades([]);
       } else {
-        console.log(`✅ ${data?.length ?? 0} trades fetched`);
         setTrades(data || []);
       }
 
@@ -60,37 +60,81 @@ export default function TradeJournal({ strategy, statusFilter }: TradeJournalPro
     fetchTrades();
   }, [strategy, statusFilter]);
 
+  const filteredTrades = trades.filter((trade) => {
+    return Object.entries(filters).every(([key, val]) => {
+      if (!val) return true;
+      return String((trade as any)[key]).toLowerCase().includes(String(val).toLowerCase());
+    });
+  });
+
+  const sortedTrades = [...filteredTrades].sort((a, b) => {
+    const aVal = (a as any)[sortKey];
+    const bVal = (b as any)[sortKey];
+    if (aVal === bVal) return 0;
+    return (aVal > bVal ? 1 : -1) * (sortAsc ? 1 : -1);
+  });
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters({ ...filters, [key]: value });
+  };
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) setSortAsc(!sortAsc);
+    else {
+      setSortKey(key);
+      setSortAsc(true);
+    }
+  };
+
   if (loading) return <div className="text-gray-300">Loading trades...</div>;
-  if (!trades.length) return <div className="text-gray-300">No trades found for <b>{strategy}</b> with status <b>{statusFilter}</b></div>;
+  if (!sortedTrades.length) return <div className="text-gray-300">No trades found for <b>{strategy}</b> with status <b>{statusFilter}</b></div>;
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm text-left border-collapse border border-gray-700">
         <thead>
           <tr>
-            <th className="border border-gray-700 p-2">Symbol</th>
-            <th className="border border-gray-700 p-2">Entry Date</th>
-            <th className="border border-gray-700 p-2">Exit Date</th>
-            <th className="border border-gray-700 p-2">Entry Price</th>
-            <th className="border border-gray-700 p-2">Exit Price</th>
-            <th className="border border-gray-700 p-2">Quantity</th>
-            <th className="border border-gray-700 p-2">Return %</th>
-            <th className="border border-gray-700 p-2">Status</th>
+            {['symbol', 'trade_date', 'exit_date', 'price', 'exit_price', 'quantity', 'return_pct', 'status'].map((col) => (
+              <th key={col} className="border border-gray-700 p-2 cursor-pointer" onClick={() => handleSort(col)}>
+                {col.replace('_', ' ').toUpperCase()}
+              </th>
+            ))}
+          </tr>
+          <tr>
+            {['symbol', 'trade_date', 'exit_date', 'price', 'exit_price', 'quantity', 'return_pct', 'status'].map((col) => (
+              <th key={col} className="border border-gray-700 p-1">
+                <input
+                  type="text"
+                  placeholder="Filter"
+                  className="w-full text-xs p-1 bg-gray-800 text-white rounded"
+                  value={filters[col] || ''}
+                  onChange={(e) => handleFilterChange(col, e.target.value)}
+                />
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {trades.map((trade) => (
-            <tr key={trade.id} className="even:bg-gray-800 odd:bg-gray-900">
-              <td className="border border-gray-700 p-2">{trade.symbol}</td>
-              <td className="border border-gray-700 p-2">{trade.trade_date}</td>
-              <td className="border border-gray-700 p-2">{trade.exit_date ?? '-'}</td>
-              <td className="border border-gray-700 p-2">{trade.price.toFixed(2)}</td>
-              <td className="border border-gray-700 p-2">{trade.exit_price?.toFixed(2) ?? '-'}</td>
-              <td className="border border-gray-700 p-2">{trade.quantity}</td>
-              <td className="border border-gray-700 p-2">{trade.return_pct?.toFixed(2) ?? '-'}%</td>
-              <td className="border border-gray-700 p-2 capitalize">{trade.status}</td>
-            </tr>
-          ))}
+          {sortedTrades.map((trade) => {
+            let rowColor = 'bg-white';
+            if (trade.status === 'closed') {
+              if (trade.return_pct != null && trade.return_pct >= 0) rowColor = 'bg-green-100';
+              else rowColor = 'bg-red-100';
+            }
+
+            return (
+              <tr key={trade.id} className={rowColor}>
+                <td className="border border-gray-700 p-2">{trade.symbol}</td>
+                <td className="border border-gray-700 p-2">{trade.trade_date}</td>
+                <td className="border border-gray-700 p-2">{trade.exit_date ?? '-'}</td>
+                <td className="border border-gray-700 p-2">{trade.price.toFixed(2)}</td>
+                <td className="border border-gray-700 p-2">{trade.exit_price?.toFixed(2) ?? '-'}</td>
+                <td className="border border-gray-700 p-2">{trade.quantity}</td>
+                <td className="border border-gray-700 p-2">{trade.return_pct?.toFixed(2) ?? '-'}%</td>
+                <td className="border border-gray-700 p-2 capitalize">{trade.status}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
