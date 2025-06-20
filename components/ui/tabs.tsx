@@ -70,7 +70,9 @@ export function Tabs({ defaultValue, value, children, className }: TabsProps) {
     } else {
       const isTabsContent =
         typeof element.type === "function" &&
-        (element.type.name === "TabsContent" || element.type.displayName === "TabsContent");
+        (element.type.name === "TabsContent" ||
+          (typeof (element.type as any).displayName === "string" &&
+           (element.type as any).displayName === "TabsContent"));
 
       if (isTabsContent) {
         if (element.props.value === activeTab) {
