@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import PortfolioTabs from '../components/ui/PortfolioTabs';
+import TradeJournal from '../components/TradeJournal';
 import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
 
@@ -175,9 +176,7 @@ export default function PortfolioView() {
               </select>
             </div>
           </div>
-          <div className="bg-zinc-900 p-4 rounded text-gray-400 text-center">
-            Trade Journal Table Coming Soon...
-          </div>
+          <TradeJournal />
         </div>
       </div>
     )
