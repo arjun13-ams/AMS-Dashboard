@@ -6,6 +6,7 @@ import {
   cloneElement,
 } from "react";
 
+// === Types ===
 type TabsProps = {
   defaultValue: string;
   value?: string;
@@ -25,16 +26,14 @@ type TabsContentProps = {
   children: ReactNode;
 };
 
+// === Tabs Component ===
 export function Tabs({ defaultValue, value, children, className }: TabsProps) {
   const isControlled = value !== undefined;
   const [internalTab, setInternalTab] = useState(defaultValue);
   const activeTab = isControlled ? value : internalTab;
 
-  console.log("Tabs: activeTab =", activeTab);
-
   const triggers: ReactNode[] = [];
   const contents: ReactNode[] = [];
-
   const childrenArray = Array.isArray(children) ? children : [children];
 
   childrenArray.forEach((child, index) => {
@@ -42,10 +41,7 @@ export function Tabs({ defaultValue, value, children, className }: TabsProps) {
 
     const element = child as ReactElement;
 
-    console.log(`Tabs: processing child[${index}] type:`, element.type);
-
     if (element.type === TabsList) {
-      console.log("Tabs: Found TabsList with children:", element.props.children);
       const triggerChildren = Array.isArray(element.props.children)
         ? element.props.children
         : [element.props.children];
@@ -57,10 +53,7 @@ export function Tabs({ defaultValue, value, children, className }: TabsProps) {
         const triggerValue = triggerElement.props.value;
         const isActive = triggerValue === activeTab;
 
-        console.log(`Tabs: processing trigger[${i}] with value: ${triggerValue}, isActive: ${isActive}`);
-
         const handleClick = () => {
-          console.log("TabsTrigger clicked:", triggerValue);
           if (!isControlled) {
             setInternalTab(triggerValue);
           }
@@ -74,17 +67,16 @@ export function Tabs({ defaultValue, value, children, className }: TabsProps) {
       });
 
       triggers.push(modifiedChildren);
-    } else if (
-      element.type === TabsContent ||
-      (typeof element.type === "function" && element.type.name === "TabsContent")
-    ) {
-      console.log("Tabs: Checking TabsContent with value:", element.props.value);
-      if (element.props.value === activeTab) {
-        console.log("Tabs: Adding TabsContent for activeTab:", activeTab);
-        contents.push(element);
-      }
     } else {
-      console.log("Tabs: Skipping child at index", index);
+      const isTabsContent =
+        typeof element.type === "function" &&
+        (element.type.name === "TabsContent" || element.type.displayName === "TabsContent");
+
+      if (isTabsContent) {
+        if (element.props.value === activeTab) {
+          contents.push(element);
+        }
+      }
     }
   });
 
@@ -96,6 +88,7 @@ export function Tabs({ defaultValue, value, children, className }: TabsProps) {
   );
 }
 
+// === Supporting Components ===
 export function TabsList({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
@@ -106,7 +99,6 @@ export function TabsTrigger({
   isActive,
   onClick,
 }: TabsTriggerProps) {
-  console.log(`TabsTrigger render: value=${value}, isActive=${isActive}`);
   return (
     <button
       onClick={onClick}
@@ -120,6 +112,8 @@ export function TabsTrigger({
 }
 
 export function TabsContent({ value, children }: TabsContentProps) {
-  console.log("TabsContent render for value:", value);
   return <div>{children}</div>;
 }
+
+// Set displayName for build-safe identification
+TabsContent.displayName = "TabsContent";
