@@ -25,9 +25,11 @@ type Trade = {
 type TradeJournalProps = {
   strategy: string;
   statusFilter: 'open' | 'closed' | 'all';
+  startDate?: string | null;
+  endDate?: string | null;
 };
 
-export default function TradeJournal({ strategy, statusFilter }: TradeJournalProps) {
+export default function TradeJournal({ strategy, statusFilter, startDate, endDate }: TradeJournalProps) {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
@@ -51,6 +53,13 @@ export default function TradeJournal({ strategy, statusFilter }: TradeJournalPro
         query = query.eq('status', statusFilter);
       }
 
+      if (startDate) {
+        query = query.gte('trade_date', startDate);
+      }
+      if (endDate) {
+        query = query.lte('trade_date', endDate);
+      }
+
       const { data, error } = await query.order('trade_date', { ascending: false });
 
       if (error) {
@@ -63,7 +72,7 @@ export default function TradeJournal({ strategy, statusFilter }: TradeJournalPro
     };
 
     fetchTrades();
-  }, [strategy, statusFilter]);
+  }, [strategy, statusFilter, startDate, endDate]);
 
   const today = dayjs();
 
