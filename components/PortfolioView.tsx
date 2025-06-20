@@ -45,7 +45,7 @@ export default function PortfolioView() {
   const [metrics, setMetrics] = useState<any>({});
   const [portfolioData, setPortfolioData] = useState<{ date: string; value: number }[]>([]);
   const [activeStrategy, setActiveStrategy] = useState(STRATEGIES[0].key);
-  const [statusFilter, setStatusFilter] = useState('Open');
+  const [statusFilter, setStatusFilter] = useState<"Open" | "Closed" | "All">("Open");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -169,7 +169,7 @@ export default function PortfolioView() {
             <div>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => setStatusFilter(e.target.value as "Open" | "Closed" | "All")}
                 className="bg-zinc-800 border border-gray-600 rounded text-sm px-2 py-1 text-white"
               >
                 <option value="Open">Open</option>
