@@ -115,6 +115,8 @@ export default function TradeJournal({ strategy, statusFilter, startDate, endDat
 
   return (
     <div className="text-white">
+      <h3 className="text-lg font-semibold text-green-400 mb-2">📋 Trade Journal</h3>
+
       <div className="flex flex-wrap gap-2 mb-2">
         <input
           type="text"
@@ -141,12 +143,12 @@ export default function TradeJournal({ strategy, statusFilter, startDate, endDat
 
       <table className="w-full text-sm text-left border-collapse border border-gray-700">
         <thead>
-          <tr>
+          <tr className="bg-zinc-700 text-black">
             {['symbol', 'trade_date', 'exit_date', 'price', 'exit_price', 'quantity', 'holding_days', 'return_pct', 'status'].map((col) => (
               <th
                 key={col}
                 onClick={() => handleSort(col)}
-                className="border border-gray-700 p-2 cursor-pointer hover:bg-gray-700"
+                className="border border-gray-700 p-2 cursor-pointer hover:bg-gray-600"
               >
                 {col.replace('_', ' ').toUpperCase()} {sortColumn === col ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </th>
@@ -162,9 +164,9 @@ export default function TradeJournal({ strategy, statusFilter, startDate, endDat
             const rowBg =
               trade.status === 'closed'
                 ? trade.return_pct !== null && trade.return_pct >= 0
-                  ? 'bg-green-100'
-                  : 'bg-red-100'
-                : 'bg-zinc-800';
+                  ? 'bg-green-100 text-black'
+                  : 'bg-red-100 text-black'
+                : 'bg-zinc-800 text-white';
 
             return (
               <tr key={trade.id} className={`${rowBg}`}>
