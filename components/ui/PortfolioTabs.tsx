@@ -2,7 +2,7 @@
 
 import { useState, ReactNode } from "react";
 
-type Tab = {
+export type Tab = {
   label: string;
   value: string;
   content: ReactNode;
@@ -13,7 +13,7 @@ type PortfolioTabsProps = {
   defaultValue: string;
 };
 
-export default function PortfolioTabs({ tabs, defaultValue }: PortfolioTabsProps) {
+export function PortfolioTabs({ tabs, defaultValue }: PortfolioTabsProps) {
   const [activeTab, setActiveTab] = useState(defaultValue);
 
   return (
