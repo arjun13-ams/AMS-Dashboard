@@ -1,108 +1,40 @@
-// /components/PortfolioTabs.tsx
-import {
-  useState,
-  ReactNode,
-  ReactElement,
-  isValidElement,
-  cloneElement,
-} from "react";
+'use client';
 
-type TabsProps = {
+import { useState, ReactNode } from "react";
+
+type Tab = {
+  label: string;
+  value: string;
+  content: ReactNode;
+};
+
+type PortfolioTabsProps = {
+  tabs: Tab[];
   defaultValue: string;
-  value?: string;
-  children: ReactNode;
-  className?: string;
 };
 
-type TabsTriggerProps = {
-  value: string;
-  children: ReactNode;
-  isActive?: boolean;
-  onClick?: () => void;
-};
-
-type TabsContentProps = {
-  value: string;
-  children: ReactNode;
-};
-
-export function PortfolioTabs({ defaultValue, value, children, className }: TabsProps) {
-  const isControlled = value !== undefined;
-  const [internalTab, setInternalTab] = useState(defaultValue);
-  const activeTab = isControlled ? value : internalTab;
-
-  const triggers: ReactNode[] = [];
-  const contents: ReactNode[] = [];
-  const childrenArray = Array.isArray(children) ? children : [children];
-
-  childrenArray.forEach((child) => {
-    if (!isValidElement(child)) return;
-
-    const element = child as ReactElement;
-
-    if (element.type === PortfolioTabsList) {
-      const triggerChildren = Array.isArray(element.props.children)
-        ? element.props.children
-        : [element.props.children];
-
-      const modifiedChildren = triggerChildren.map((trigger) => {
-        if (!isValidElement(trigger)) return trigger;
-
-        const triggerElement = trigger as ReactElement<TabsTriggerProps>;
-        const triggerValue = triggerElement.props.value;
-        const isActive = triggerValue === activeTab;
-
-        const handleClick = () => {
-          if (!isControlled) {
-            setInternalTab(triggerValue);
-          }
-          triggerElement.props.onClick?.();
-        };
-
-        return cloneElement(triggerElement, {
-          isActive,
-          onClick: handleClick,
-        });
-      });
-
-      triggers.push(modifiedChildren);
-    } else if (element.type === PortfolioTabsContent) {
-      if (element.props.value === activeTab) {
-        contents.push(element);
-      }
-    }
-  });
+export default function PortfolioTabs({ tabs, defaultValue }: PortfolioTabsProps) {
+  const [activeTab, setActiveTab] = useState(defaultValue);
 
   return (
-    <div className={className}>
-      <div className="flex gap-2 mb-4">{triggers.flat()}</div>
-      <div>{contents}</div>
+    <div className="w-full">
+      <div className="flex gap-2 mb-4">
+        {tabs.map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => setActiveTab(tab.value)}
+            className={`px-4 py-2 rounded transition-colors ${
+              activeTab === tab.value ? "bg-blue-600 text-white" : "bg-gray-300 text-black"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="p-6 rounded bg-gray-100 text-black">
+        {tabs.find((t) => t.value === activeTab)?.content}
+      </div>
     </div>
   );
-}
-
-export function PortfolioTabsList({ children }: { children: ReactNode }) {
-  return <>{children}</>;
-}
-
-export function PortfolioTabsTrigger({
-  value,
-  children,
-  isActive,
-  onClick,
-}: TabsTriggerProps) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded transition-colors ${
-        isActive ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-export function PortfolioTabsContent({ value, children }: TabsContentProps) {
-  return <div>{children}</div>;
 }
