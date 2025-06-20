@@ -111,31 +111,31 @@ export default function TradeJournal({ strategy, statusFilter, startDate, endDat
     }
   };
 
-  if (loading) return <div>Loading trades...</div>;
+  if (loading) return <div className="text-white">Loading trades...</div>;
 
   return (
-    <div>
+    <div className="text-white">
       <div className="flex flex-wrap gap-2 mb-2">
         <input
           type="text"
           placeholder="Filter by symbol"
           value={filters.symbol}
           onChange={(e) => setFilters({ ...filters, symbol: e.target.value })}
-          className="px-2 py-1 border rounded text-sm"
+          className="px-2 py-1 border rounded text-sm text-black"
         />
         <input
           type="text"
           placeholder="Filter by entry date (YYYY-MM-DD)"
           value={filters.entryDate}
           onChange={(e) => setFilters({ ...filters, entryDate: e.target.value })}
-          className="px-2 py-1 border rounded text-sm"
+          className="px-2 py-1 border rounded text-sm text-black"
         />
         <input
           type="text"
           placeholder="Filter by exit date (YYYY-MM-DD)"
           value={filters.exitDate}
           onChange={(e) => setFilters({ ...filters, exitDate: e.target.value })}
-          className="px-2 py-1 border rounded text-sm"
+          className="px-2 py-1 border rounded text-sm text-black"
         />
       </div>
 
@@ -146,7 +146,7 @@ export default function TradeJournal({ strategy, statusFilter, startDate, endDat
               <th
                 key={col}
                 onClick={() => handleSort(col)}
-                className="border border-gray-700 p-2 cursor-pointer hover:bg-gray-200"
+                className="border border-gray-700 p-2 cursor-pointer hover:bg-gray-700"
               >
                 {col.replace('_', ' ').toUpperCase()} {sortColumn === col ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
               </th>
@@ -164,7 +164,7 @@ export default function TradeJournal({ strategy, statusFilter, startDate, endDat
                 ? trade.return_pct !== null && trade.return_pct >= 0
                   ? 'bg-green-100'
                   : 'bg-red-100'
-                : 'bg-white';
+                : 'bg-zinc-800';
 
             return (
               <tr key={trade.id} className={`${rowBg}`}>
