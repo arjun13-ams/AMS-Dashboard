@@ -33,7 +33,6 @@ export default function PortfolioView() {
   const [metrics, setMetrics] = useState<any>({});
   const [tabClickMessage, setTabClickMessage] = useState<string>("");
 
-  // Log state changes and selected tab debug message
   console.log(
     `PortfolioView Render: selectedTab = ${selectedTab} ("Tab ${selectedTab} is selected"), calendarFilter = ${calendarFilter}`
   );
@@ -124,7 +123,7 @@ export default function PortfolioView() {
 
   return (
     <div className="w-full space-y-6">
-      {/* Display tab click message here */}
+      {/* Tab click message bar */}
       <div
         style={{
           backgroundColor: "#0077b6",
@@ -159,7 +158,18 @@ export default function PortfolioView() {
         </TabsList>
 
         {STRATEGIES.map((s) => (
-          <TabsContent key={s.key} value={s.key}>
+          <TabsContent
+            key={s.key}
+            value={s.key}
+            style={{
+              border: "2px solid #0077b6",
+              backgroundColor: "#f0f9ff",
+              color: "#000",
+              minHeight: "400px",
+              padding: "15px",
+              overflowY: "auto",
+            }}
+          >
             {/* Debug message inside each tab content */}
             <div
               style={{
