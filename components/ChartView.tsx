@@ -69,7 +69,7 @@ export default function ChartView() {
     // Create chart with dark theme and grid
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        backgroundColor: "#111",
+        background: { color: "#111" },
         textColor: "#DDD",
       },
       grid: {
