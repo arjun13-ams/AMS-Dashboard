@@ -159,6 +159,7 @@ export default function PortfolioView() {
 
         {STRATEGIES.map((s) => (
           <TabsContent key={s.key} value={s.key}>
+            {/* Wrap your styled div inside TabsContent */}
             <div
               style={{
                 border: "2px solid #0077b6",
