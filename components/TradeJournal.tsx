@@ -36,7 +36,6 @@ export default function TradeJournal({ strategy, statusFilter, startDate, endDat
     symbol: '',
     entryDate: '',
     exitDate: '',
-    status: '',
   });
   const [sortColumn, setSortColumn] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -76,18 +75,24 @@ export default function TradeJournal({ strategy, statusFilter, startDate, endDat
 
   const today = dayjs();
 
-  let filteredTrades = trades.filter((trade) => {
-    return (
-      trade.symbol.toLowerCase().includes(filters.symbol.toLowerCase()) &&
-      trade.trade_date.includes(filters.entryDate) &&
-      (trade.exit_date?.includes(filters.exitDate) ?? true)
-    );
-  });
+  // Compute effective holding days for filtering and sorting
+  const computeHoldingDays = (trade: Trade) =>
+    trade.status === 'open' ? today.diff(dayjs(trade.trade_date), 'day') : trade.holding_days ?? 0;
+
+  let filteredTrades = trades
+    .map((trade) => ({ ...trade, computed_holding_days: computeHoldingDays(trade) }))
+    .filter((trade) => {
+      return (
+        trade.symbol.toLowerCase().includes(filters.symbol.toLowerCase()) &&
+        trade.trade_date.includes(filters.entryDate) &&
+        (trade.exit_date?.includes(filters.exitDate) ?? true)
+      );
+    });
 
   if (sortColumn) {
     filteredTrades.sort((a, b) => {
-      const valA = a[sortColumn as keyof Trade];
-      const valB = b[sortColumn as keyof Trade];
+      let valA: any = sortColumn === 'holding_days' ? a.computed_holding_days : a[sortColumn as keyof Trade];
+      let valB: any = sortColumn === 'holding_days' ? b.computed_holding_days : b[sortColumn as keyof Trade];
 
       if (valA === null || valA === undefined) return 1;
       if (valB === null || valB === undefined) return -1;
@@ -157,9 +162,7 @@ export default function TradeJournal({ strategy, statusFilter, startDate, endDat
         </thead>
         <tbody>
           {filteredTrades.map((trade) => {
-            const holdingDays = trade.status === 'open'
-              ? today.diff(dayjs(trade.trade_date), 'day')
-              : trade.holding_days;
+            const holdingDays = trade.computed_holding_days;
 
             const rowBg =
               trade.status === 'closed'
@@ -176,7 +179,7 @@ export default function TradeJournal({ strategy, statusFilter, startDate, endDat
                 <td className="border border-gray-700 p-2">{trade.price.toFixed(2)}</td>
                 <td className="border border-gray-700 p-2">{trade.exit_price?.toFixed(2) ?? '-'}</td>
                 <td className="border border-gray-700 p-2">{trade.quantity}</td>
-                <td className="border border-gray-700 p-2">{holdingDays ?? '-'}</td>
+                <td className="border border-gray-700 p-2">{holdingDays}</td>
                 <td className="border border-gray-700 p-2">{trade.return_pct?.toFixed(2) ?? '-'}</td>
                 <td className="border border-gray-700 p-2">{trade.status}</td>
               </tr>
