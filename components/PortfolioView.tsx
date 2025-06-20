@@ -45,6 +45,7 @@ export default function PortfolioView() {
   const [metrics, setMetrics] = useState<any>({});
   const [portfolioData, setPortfolioData] = useState<{ date: string; value: number }[]>([]);
   const [activeStrategy, setActiveStrategy] = useState(STRATEGIES[0].key);
+  const [statusFilter, setStatusFilter] = useState('Open');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -53,7 +54,6 @@ export default function PortfolioView() {
       const to = endDate ? dayjs(endDate) : null;
       const newMetrics: any = {};
 
-      // Fetch portfolio history only for the active strategy for graph
       let graphData: { date: string; value: number }[] = [];
 
       for (const strategy of STRATEGIES) {
@@ -69,8 +69,7 @@ export default function PortfolioView() {
 
         const filtered = data.filter((d) => {
           const date = dayjs(d.rebalance_date);
-          return (!from || date.isAfter(from.subtract(1, 'day')))
-            && (!to || date.isBefore(to.add(1, 'day')));
+          return (!from || date.isAfter(from.subtract(1, 'day'))) && (!to || date.isBefore(to.add(1, 'day')));
         });
 
         if (filtered.length < 2) continue;
@@ -99,7 +98,6 @@ export default function PortfolioView() {
           sharpe: sharpe.toFixed(2),
         };
 
-        // Save data for active strategy for graph
         if (strategy.key === activeStrategy) {
           graphData = filtered.map((r) => ({
             date: dayjs(r.rebalance_date).format('YYYY-MM-DD'),
@@ -169,17 +167,22 @@ export default function PortfolioView() {
           <div className="mb-2 flex justify-between items-center">
             <h3 className="text-lg font-semibold">📋 Trade Journal</h3>
             <div>
-              <select className="bg-zinc-800 border border-gray-600 rounded text-sm px-2 py-1 text-white">
-                <option>Open</option>
-                <option>Closed</option>
-                <option>All</option>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-zinc-800 border border-gray-600 rounded text-sm px-2 py-1 text-white"
+              >
+                <option value="Open">Open</option>
+                <option value="Closed">Closed</option>
+                <option value="All">All</option>
               </select>
             </div>
           </div>
-          <TradeJournal />
+
+          <TradeJournal strategy={s.key} statusFilter={statusFilter} />
         </div>
       </div>
-    )
+    ),
   }));
 
   return (
