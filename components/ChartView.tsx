@@ -42,7 +42,7 @@ export default function ChartView() {
     }
 
     const chart = createChart(chartContainerRef.current, {
-      layout: { background: "#111", textColor: "#DDD" },
+      layout: { background: { color: "#111" }, textColor: "#DDD" },
       grid: { vertLines: { color: "#222" }, horzLines: { color: "#222" } },
       timeScale: { timeVisible: true },
       height: 500,
