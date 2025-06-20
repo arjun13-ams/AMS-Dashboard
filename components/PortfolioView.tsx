@@ -169,12 +169,12 @@ export default function PortfolioView() {
             <div>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as "Open" | "Closed" | "All")}
+                onChange={(e) => setStatusFilter(e.target.value as "open" | "closed" | "all")}
                 className="bg-zinc-800 border border-gray-600 rounded text-sm px-2 py-1 text-white"
               >
-                <option value="Open">Open</option>
-                <option value="Closed">Closed</option>
-                <option value="All">All</option>
+                <option value="open">Open</option>
+                <option value="closed">Closed</option>
+                <option value="all">All</option>
               </select>
             </div>
           </div>
