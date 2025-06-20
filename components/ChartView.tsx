@@ -36,20 +36,24 @@ export default function ChartView() {
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    // Clear previous chart instance
+    // Remove existing chart instance if any
     if (chartRef.current) {
       chartRef.current.remove();
     }
 
     const chart = createChart(chartContainerRef.current, {
-      layout: { background: { color: "#111" }, textColor: "#DDD" },
+      layout: { background: "#111", textColor: "#DDD" },
       grid: { vertLines: { color: "#222" }, horzLines: { color: "#222" } },
       timeScale: { timeVisible: true },
       height: 500,
     });
 
     chartRef.current = chart;
-    candleSeriesRef.current = chart.addCandlestickSeries();
+    candleSeriesRef.current = chart.addCandlestickSeries({
+      upColor: "#4AFA9A",
+      downColor: "#E33F64",
+      borderVisible: false,
+    });
     ema10SeriesRef.current = chart.addLineSeries({ color: "orange", lineWidth: 1 });
     ema21SeriesRef.current = chart.addLineSeries({ color: "cyan", lineWidth: 1 });
   }, [selectedSymbol]);
