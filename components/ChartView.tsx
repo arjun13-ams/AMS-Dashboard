@@ -16,6 +16,7 @@ export default function ChartView() {
   const [filteredSymbols, setFilteredSymbols] = useState<string[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string>("TCS");
   const [highlightedIndex, setHighlightedIndex] = useState<number>(0);
+  const [latestBar, setLatestBar] = useState<any>(null);
 
   useEffect(() => {
     async function fetchSymbols() {
@@ -59,7 +60,7 @@ export default function ChartView() {
     async function fetchData() {
       const { data, error } = await supabase
         .from("ohlcv_data")
-        .select("date, open, high, low, close")
+        .select("date, open, high, low, close, volume")
         .eq("symbol", selectedSymbol)
         .order("date");
 
@@ -72,6 +73,8 @@ export default function ChartView() {
         low: row.low,
         close: row.close,
       }));
+
+      setLatestBar(data[data.length - 1]);
 
       candleSeriesRef.current?.setData(candleData);
 
@@ -119,6 +122,10 @@ export default function ChartView() {
     }
   };
 
+  const formatNumber = (num: number) => {
+    return num?.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+  };
+
   return (
     <div className="flex flex-col">
       <div className="mb-4">
@@ -150,6 +157,17 @@ export default function ChartView() {
           </ul>
         )}
       </div>
+
+      {latestBar && (
+        <div className="text-sm text-gray-300 bg-zinc-800 px-3 py-2 rounded mb-2">
+          <span className="font-semibold text-white mr-4">{selectedSymbol}</span>
+          O: {formatNumber(latestBar.open)} H: {formatNumber(latestBar.high)} L: {formatNumber(latestBar.low)} C: {formatNumber(latestBar.close)} V: {formatNumber(latestBar.volume)}
+          <span className={`ml-4 font-semibold ${latestBar.close >= latestBar.open ? 'text-green-400' : 'text-red-400'}`}>
+            {(((latestBar.close - latestBar.open) / latestBar.open) * 100).toFixed(2)}%
+          </span>
+        </div>
+      )}
+
       <div ref={chartContainerRef} className="w-full" />
     </div>
   );
