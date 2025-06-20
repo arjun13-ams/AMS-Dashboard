@@ -15,8 +15,8 @@ export default function ChartView() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredSymbols, setFilteredSymbols] = useState<string[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string>("TCS");
-  const [highlightedIndex, setHighlightedIndex] = useState<number>(0);
-  const [latestBar, setLatestBar] = useState<any>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [ohlc, setOhlc] = useState<any>(null);
 
   useEffect(() => {
     async function fetchSymbols() {
@@ -33,7 +33,7 @@ export default function ChartView() {
   useEffect(() => {
     const filtered = symbols.filter((s) => s.toLowerCase().includes(searchTerm.toLowerCase()));
     setFilteredSymbols(filtered);
-    setHighlightedIndex(0);
+    setSelectedIndex(0);
   }, [searchTerm, symbols]);
 
   useEffect(() => {
@@ -74,9 +74,18 @@ export default function ChartView() {
         close: row.close,
       }));
 
-      setLatestBar(data[data.length - 1]);
-
       candleSeriesRef.current?.setData(candleData);
+
+      const lastBar = data[data.length - 1];
+      const prevBar = data[data.length - 2];
+      setOhlc({
+        open: lastBar.open,
+        high: lastBar.high,
+        low: lastBar.low,
+        close: lastBar.close,
+        volume: lastBar.volume,
+        change: ((lastBar.close - prevBar.close) / prevBar.close) * 100,
+      });
 
       const ema = (period: number) => {
         const k = 2 / (period + 1);
@@ -88,8 +97,10 @@ export default function ChartView() {
           if (i === period - 1) {
             const sum = candleData.slice(0, period).reduce((acc, d) => acc + d.close, 0);
             prevEma = sum / period;
-          } else if (prevEma !== undefined) {
-            prevEma = bar.close * k + prevEma * (1 - k);
+          } else {
+            if (prevEma !== undefined) {
+              prevEma = bar.close * k + prevEma * (1 - k);
+            }
           }
           if (prevEma !== undefined) {
             result.push({ time: bar.time, value: prevEma });
@@ -108,22 +119,17 @@ export default function ChartView() {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setHighlightedIndex((prev) => Math.min(prev + 1, filteredSymbols.length - 1));
+      setSelectedIndex((prev) => Math.min(prev + 1, filteredSymbols.length - 1));
     } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setHighlightedIndex((prev) => Math.max(prev - 1, 0));
-    } else if (e.key === "Enter") {
-      if (filteredSymbols.length > 0) {
-        const selected = filteredSymbols[highlightedIndex] || filteredSymbols[0];
-        setSelectedSymbol(selected);
-        setSearchTerm("");
-      }
+      setSelectedIndex((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === "Enter" && filteredSymbols[selectedIndex]) {
+      setSelectedSymbol(filteredSymbols[selectedIndex]);
+      setSearchTerm("");
     }
   };
 
-  const formatNumber = (num: number) => {
-    return num?.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+  const resetZoom = () => {
+    chartRef.current?.timeScale().fitContent();
   };
 
   return (
@@ -139,13 +145,10 @@ export default function ChartView() {
         />
         {searchTerm && (
           <ul className="bg-gray-900 max-h-48 overflow-auto rounded mt-1 text-sm border border-gray-700">
-            {filteredSymbols.slice(0, 15).map((s, idx) => (
+            {filteredSymbols.slice(0, 15).map((s, i) => (
               <li
                 key={s}
-                className={`p-2 cursor-pointer ${
-                  highlightedIndex === idx ? "bg-gray-700" : "hover:bg-gray-700"
-                }`}
-                onMouseEnter={() => setHighlightedIndex(idx)}
+                className={`p-2 cursor-pointer ${i === selectedIndex ? "bg-gray-700" : "hover:bg-gray-700"}`}
                 onClick={() => {
                   setSelectedSymbol(s);
                   setSearchTerm("");
@@ -158,15 +161,25 @@ export default function ChartView() {
         )}
       </div>
 
-      {latestBar && (
-        <div className="text-sm text-gray-300 bg-zinc-800 px-3 py-2 rounded mb-2">
-          <span className="font-semibold text-white mr-4">{selectedSymbol}</span>
-          O: {formatNumber(latestBar.open)} H: {formatNumber(latestBar.high)} L: {formatNumber(latestBar.low)} C: {formatNumber(latestBar.close)} V: {formatNumber(latestBar.volume)}
-          <span className={`ml-4 font-semibold ${latestBar.close >= latestBar.open ? 'text-green-400' : 'text-red-400'}`}>
-            {(((latestBar.close - latestBar.open) / latestBar.open) * 100).toFixed(2)}%
+      {ohlc && (
+        <div className="text-sm text-white mb-2">
+          <span className="font-semibold">{selectedSymbol}</span> &nbsp;
+          O: {ohlc.open} H: {ohlc.high} L: {ohlc.low} C: {ohlc.close} Vol: {ohlc.volume} &nbsp;
+          <span className={ohlc.change >= 0 ? "text-green-400" : "text-red-400"}>
+            {ohlc.change.toFixed(2)}%
           </span>
         </div>
       )}
+
+      <div className="flex items-center justify-between mb-2">
+        <div></div>
+        <button
+          onClick={resetZoom}
+          className="px-3 py-1 rounded bg-gray-700 text-white text-xs hover:bg-gray-600"
+        >
+          Reset Zoom
+        </button>
+      </div>
 
       <div ref={chartContainerRef} className="w-full" />
     </div>
