@@ -1,6 +1,11 @@
 'use client';
 import { useState } from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/PortfolioTabs";
+import {
+  PortfolioTabs as Tabs,
+  PortfolioTabsList as TabsList,
+  PortfolioTabsTrigger as TabsTrigger,
+  PortfolioTabsContent as TabsContent,
+} from "../components/ui/PortfolioTabs";
 
 const STRATEGIES = [
   { key: "Close-Based", label: "Close-Based" },
@@ -16,7 +21,7 @@ export default function PortfolioView() {
     <div className="w-full space-y-6 bg-white text-black p-4 min-h-screen">
       <Tabs defaultValue={selectedTab} value={selectedTab} className="w-full">
         <TabsList>
-          {STRATEGIES.map(s => (
+          {STRATEGIES.map((s) => (
             <TabsTrigger
               key={s.key}
               value={s.key}
@@ -28,15 +33,19 @@ export default function PortfolioView() {
           ))}
         </TabsList>
 
-        {STRATEGIES.map(s => (
+        {STRATEGIES.map((s) => (
           <TabsContent key={s.key} value={s.key}>
             <div
               className={`p-6 rounded ${
-                selectedTab === s.key ? "bg-blue-800 text-white" : "bg-gray-800 text-gray-200"
+                selectedTab === s.key
+                  ? "bg-blue-800 text-white"
+                  : "bg-gray-800 text-gray-200"
               }`}
             >
               <h2 className="text-xl mb-2">{s.label}</h2>
-              <p className="text-lg">Placeholder content for <strong>{s.label}</strong> tab.</p>
+              <p className="text-lg">
+                Placeholder content for <strong>{s.label}</strong> tab.
+              </p>
             </div>
           </TabsContent>
         ))}
