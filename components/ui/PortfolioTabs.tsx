@@ -11,10 +11,16 @@ export type Tab = {
 type PortfolioTabsProps = {
   tabs: Tab[];
   defaultValue: string;
+  onTabChange?: (value: string) => void;  // added callback prop
 };
 
-export default function PortfolioTabs({ tabs, defaultValue }: PortfolioTabsProps) {
+export default function PortfolioTabs({ tabs, defaultValue, onTabChange }: PortfolioTabsProps) {
   const [activeTab, setActiveTab] = useState(defaultValue);
+
+  const handleClick = (value: string) => {
+    setActiveTab(value);
+    if (onTabChange) onTabChange(value);
+  };
 
   return (
     <div className="w-full">
@@ -22,7 +28,7 @@ export default function PortfolioTabs({ tabs, defaultValue }: PortfolioTabsProps
         {tabs.map((tab) => (
           <button
             key={tab.value}
-            onClick={() => setActiveTab(tab.value)}
+            onClick={() => handleClick(tab.value)}
             className={`px-4 py-2 rounded transition-colors ${
               activeTab === tab.value ? "bg-blue-600 text-white" : "bg-gray-300 text-black"
             }`}
