@@ -31,6 +31,7 @@ export default function PortfolioView() {
   const [calendarFilter, setCalendarFilter] = useState("FY25");
   const [selectedTab, setSelectedTab] = useState(STRATEGIES[0].key);
   const [metrics, setMetrics] = useState<any>({});
+  const [tabClickMessage, setTabClickMessage] = useState<string>("");
 
   // Log state changes and selected tab debug message
   console.log(
@@ -123,6 +124,22 @@ export default function PortfolioView() {
 
   return (
     <div className="w-full space-y-6">
+      {/* Display tab click message here */}
+      <div
+        style={{
+          backgroundColor: "#0077b6",
+          color: "white",
+          padding: "10px",
+          borderRadius: "6px",
+          textAlign: "center",
+          fontWeight: "bold",
+          marginBottom: "10px",
+          minHeight: "30px",
+        }}
+      >
+        {tabClickMessage || "Click a tab to see which one is selected"}
+      </div>
+
       <Tabs defaultValue={selectedTab} value={selectedTab} className="w-full">
         <TabsList>
           {STRATEGIES.map((s) => (
@@ -133,6 +150,7 @@ export default function PortfolioView() {
               onClick={() => {
                 console.log(`TabsTrigger clicked: ${s.key}`);
                 setSelectedTab(s.key);
+                setTabClickMessage(`Tab "${s.label}" clicked!`);
               }}
             >
               {s.label}
