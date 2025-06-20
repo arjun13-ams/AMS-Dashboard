@@ -15,6 +15,7 @@ export default function ChartView() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredSymbols, setFilteredSymbols] = useState<string[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string>("TCS");
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(0);
 
   useEffect(() => {
     async function fetchSymbols() {
@@ -31,12 +32,12 @@ export default function ChartView() {
   useEffect(() => {
     const filtered = symbols.filter((s) => s.toLowerCase().includes(searchTerm.toLowerCase()));
     setFilteredSymbols(filtered);
+    setHighlightedIndex(0);
   }, [searchTerm, symbols]);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    // Remove existing chart instance if any
     if (chartRef.current) {
       chartRef.current.remove();
     }
@@ -49,11 +50,7 @@ export default function ChartView() {
     });
 
     chartRef.current = chart;
-    candleSeriesRef.current = chart.addCandlestickSeries({
-      upColor: "#4AFA9A",
-      downColor: "#E33F64",
-      borderVisible: false,
-    });
+    candleSeriesRef.current = chart.addCandlestickSeries();
     ema10SeriesRef.current = chart.addLineSeries({ color: "orange", lineWidth: 1 });
     ema21SeriesRef.current = chart.addLineSeries({ color: "cyan", lineWidth: 1 });
   }, [selectedSymbol]);
@@ -88,10 +85,8 @@ export default function ChartView() {
           if (i === period - 1) {
             const sum = candleData.slice(0, period).reduce((acc, d) => acc + d.close, 0);
             prevEma = sum / period;
-          } else {
-            if (prevEma !== undefined) {
-              prevEma = bar.close * k + prevEma * (1 - k);
-            }
+          } else if (prevEma !== undefined) {
+            prevEma = bar.close * k + prevEma * (1 - k);
           }
           if (prevEma !== undefined) {
             result.push({ time: bar.time, value: prevEma });
@@ -108,6 +103,22 @@ export default function ChartView() {
     fetchData();
   }, [selectedSymbol]);
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIndex((prev) => Math.min(prev + 1, filteredSymbols.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === "Enter") {
+      if (filteredSymbols.length > 0) {
+        const selected = filteredSymbols[highlightedIndex] || filteredSymbols[0];
+        setSelectedSymbol(selected);
+        setSearchTerm("");
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col">
       <div className="mb-4">
@@ -117,13 +128,17 @@ export default function ChartView() {
           placeholder="Search symbol"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyDown={handleKeyDown}
         />
         {searchTerm && (
           <ul className="bg-gray-900 max-h-48 overflow-auto rounded mt-1 text-sm border border-gray-700">
-            {filteredSymbols.slice(0, 15).map((s) => (
+            {filteredSymbols.slice(0, 15).map((s, idx) => (
               <li
                 key={s}
-                className="p-2 hover:bg-gray-700 cursor-pointer"
+                className={`p-2 cursor-pointer ${
+                  highlightedIndex === idx ? "bg-gray-700" : "hover:bg-gray-700"
+                }`}
+                onMouseEnter={() => setHighlightedIndex(idx)}
                 onClick={() => {
                   setSelectedSymbol(s);
                   setSearchTerm("");
