@@ -45,7 +45,7 @@ export default function PortfolioView() {
   const [metrics, setMetrics] = useState<any>({});
   const [portfolioData, setPortfolioData] = useState<{ date: string; value: number }[]>([]);
   const [activeStrategy, setActiveStrategy] = useState(STRATEGIES[0].key);
-  const [statusFilter, setStatusFilter] = useState<"Open" | "Closed" | "All">("Open");
+  const [statusFilter, setStatusFilter] = useState<"open" | "closed" | "all">("open");
 
   useEffect(() => {
     const fetchData = async () => {
