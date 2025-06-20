@@ -47,7 +47,7 @@ export default function TradeJournal({ strategy, statusFilter }: TradeJournalPro
 
       console.log('Supabase query object:', query);
 
-      const { data, error } = await query.order('entry_date', { ascending: false });
+      const { data, error } = await query.order('trade_date', { ascending: false });
 
       if (error) {
         console.error('Error fetching trades:', error);
