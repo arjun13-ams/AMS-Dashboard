@@ -32,8 +32,10 @@ export default function PortfolioView() {
   const [selectedTab, setSelectedTab] = useState(STRATEGIES[0].key);
   const [metrics, setMetrics] = useState<any>({});
 
-  // Log state changes
-  console.log("PortfolioView Render: selectedTab =", selectedTab, "calendarFilter =", calendarFilter);
+  // Log state changes and selected tab debug message
+  console.log(
+    `PortfolioView Render: selectedTab = ${selectedTab} ("Tab ${selectedTab} is selected"), calendarFilter = ${calendarFilter}`
+  );
   console.log("Current metrics state:", metrics);
 
   useEffect(() => {
@@ -140,6 +142,21 @@ export default function PortfolioView() {
 
         {STRATEGIES.map((s) => (
           <TabsContent key={s.key} value={s.key}>
+            {/* Debug message inside each tab content */}
+            <div
+              style={{
+                padding: "10px",
+                backgroundColor: selectedTab === s.key ? "#e0f7fa" : "transparent",
+                marginBottom: "10px",
+                borderRadius: "6px",
+                border: selectedTab === s.key ? "1px solid #0077b6" : "none",
+                fontWeight: "bold",
+                color: selectedTab === s.key ? "#0077b6" : "#666",
+              }}
+            >
+              Tab <strong>{s.label}</strong> is selected: {selectedTab === s.key ? "YES" : "NO"}
+            </div>
+
             <div className="flex flex-col gap-4 mb-4">
               <div
                 style={{
@@ -167,7 +184,9 @@ export default function PortfolioView() {
                       setCalendarFilter(opt.value);
                     }}
                     className={`px-3 py-1 rounded text-xs border ${
-                      calendarFilter === opt.value ? "bg-green-800 border-green-500" : "bg-zinc-800 border-gray-600"
+                      calendarFilter === opt.value
+                        ? "bg-green-800 border-green-500"
+                        : "bg-zinc-800 border-gray-600"
                     }`}
                   >
                     {opt.label}
