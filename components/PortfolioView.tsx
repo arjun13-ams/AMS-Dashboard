@@ -41,12 +41,16 @@ function getFiscalYearLabel(fy: number) {
 }
 
 export default function PortfolioView() {
-  const [calendarFilter, setCalendarFilter] = useState<string>('');
+  const [calendarFilter, setCalendarFilter] = useState<string>('All');
   const [fiscalYears, setFiscalYears] = useState<{ label: string; value: string }[]>([]);
   const [metrics, setMetrics] = useState<any>({});
   const [portfolioData, setPortfolioData] = useState<{ date: string; value: number }[]>([]);
   const [activeStrategy, setActiveStrategy] = useState(STRATEGIES[0].key);
   const [statusFilter, setStatusFilter] = useState<'open' | 'closed' | 'all'>('open');
+
+  // Custom date range for filtering (overrides fiscal year if set)
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
 
   // Calculate last 3 fiscal years dynamically from max rebalance_date
   useEffect(() => {
@@ -66,8 +70,9 @@ export default function PortfolioView() {
             value: getFiscalYearLabel(fy),
           }))
           .reverse();
-        setFiscalYears(fyOptions);
-        setCalendarFilter(fyOptions[fyOptions.length - 1].value);
+
+        setFiscalYears([{ label: 'All', value: 'All' }, ...fyOptions]);
+        setCalendarFilter('All');
         return;
       }
 
@@ -80,8 +85,8 @@ export default function PortfolioView() {
         }))
         .reverse();
 
-      setFiscalYears(fyOptions);
-      setCalendarFilter(fyOptions[fyOptions.length - 1].value);
+      setFiscalYears([{ label: 'All', value: 'All' }, ...fyOptions]);
+      setCalendarFilter(getFiscalYearLabel(maxFY)); // default to latest FY
     };
 
     fetchMaxDateAndSetFY();
@@ -89,6 +94,7 @@ export default function PortfolioView() {
 
   function getDateRange(fy: string) {
     // e.g. FY26 -> 2025-04-01 to 2026-03-31
+    if (fy === 'All') return [null, null];
     if (!fy.startsWith('FY')) return [null, null];
     const fyNum = Number('20' + fy.slice(2));
     if (isNaN(fyNum)) return [null, null];
@@ -97,11 +103,26 @@ export default function PortfolioView() {
     return [start, end];
   }
 
+  // Determine date range to use for filtering:
+  // custom date range if both customStartDate and customEndDate are set and valid,
+  // otherwise calendarFilter date range,
+  // else no filter (nulls)
+  const [startDate, endDate] = (() => {
+    if (
+      customStartDate &&
+      customEndDate &&
+      dayjs(customStartDate).isValid() &&
+      dayjs(customEndDate).isValid()
+    ) {
+      return [customStartDate, customEndDate];
+    }
+    return getDateRange(calendarFilter);
+  })();
+
   useEffect(() => {
-    if (!calendarFilter) return;
+    if (calendarFilter === '') return;
 
     const fetchData = async () => {
-      const [startDate, endDate] = getDateRange(calendarFilter);
       const from = startDate ? dayjs(startDate) : null;
       const to = endDate ? dayjs(endDate) : null;
       const newMetrics: any = {};
@@ -163,18 +184,23 @@ export default function PortfolioView() {
     };
 
     fetchData();
-  }, [calendarFilter, activeStrategy]);
+  }, [calendarFilter, activeStrategy, startDate, endDate]);
 
   const tabs = STRATEGIES.map((s) => ({
     label: s.label,
     value: s.key,
     content: (
       <div className="flex flex-col gap-4 text-white">
-        <div className="flex gap-2">
+        {/* Fiscal Year + All filter buttons */}
+        <div className="flex gap-2 flex-wrap items-center mb-2">
           {fiscalYears.map((opt) => (
             <button
               key={opt.value}
-              onClick={() => setCalendarFilter(opt.value)}
+              onClick={() => {
+                setCalendarFilter(opt.value);
+                setCustomStartDate('');
+                setCustomEndDate('');
+              }}
               className={`px-3 py-1 rounded text-xs border ${
                 calendarFilter === opt.value
                   ? 'bg-green-800 border-green-500 text-white'
@@ -184,6 +210,39 @@ export default function PortfolioView() {
               {opt.label}
             </button>
           ))}
+        </div>
+
+        {/* Custom date range filters */}
+        <div className="flex gap-2 flex-wrap items-center mb-4">
+          <label className="text-sm text-gray-300 flex items-center gap-1">
+            Custom Range:
+            <input
+              type="date"
+              value={customStartDate}
+              max={customEndDate || undefined}
+              onChange={(e) => setCustomStartDate(e.target.value)}
+              className="px-2 py-1 rounded text-black text-sm"
+            />
+            <span>to</span>
+            <input
+              type="date"
+              value={customEndDate}
+              min={customStartDate || undefined}
+              onChange={(e) => setCustomEndDate(e.target.value)}
+              className="px-2 py-1 rounded text-black text-sm"
+            />
+            <button
+              onClick={() => {
+                setCalendarFilter('All');
+                setCustomStartDate('');
+                setCustomEndDate('');
+              }}
+              className="ml-2 px-2 py-1 rounded bg-red-600 text-white text-xs"
+              title="Clear custom date range"
+            >
+              Clear
+            </button>
+          </label>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -217,7 +276,6 @@ export default function PortfolioView() {
 
         <div className="mt-6">
           <div className="mb-2 flex justify-between items-center">
-            {/* Removed duplicate Trade Journal header here */}
             <div>
               <select
                 value={statusFilter}
@@ -234,8 +292,8 @@ export default function PortfolioView() {
           <TradeJournal
             strategy={s.key}
             statusFilter={statusFilter}
-            startDate={getDateRange(calendarFilter)[0]}
-            endDate={getDateRange(calendarFilter)[1]}
+            startDate={startDate}
+            endDate={endDate}
           />
         </div>
       </div>
