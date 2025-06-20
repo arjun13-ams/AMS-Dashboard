@@ -7,7 +7,7 @@ import {
   ISeriesApi,
   HistogramData,
   UTCTimestamp,
-  HistogramOptions,
+  HistogramStyleOptions,
   LineStyle,
 } from "lightweight-charts";
 import { supabase } from "../lib/supabase";
@@ -117,7 +117,7 @@ export default function ChartView() {
         bottom: 0,
       },
       priceLineVisible: false,
-    } as HistogramOptions);
+    } as HistogramStyleOptions);
 
     volumeSeriesRef.current = volumeSeries;
 
