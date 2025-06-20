@@ -13,7 +13,7 @@ export default function PortfolioView() {
   const [selectedTab, setSelectedTab] = useState(STRATEGIES[0].key);
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full space-y-6 bg-white text-black p-4 min-h-screen">
       <Tabs defaultValue={selectedTab} value={selectedTab} className="w-full">
         <TabsList>
           {STRATEGIES.map(s => (
