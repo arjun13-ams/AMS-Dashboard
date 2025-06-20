@@ -1,6 +1,6 @@
 'use client';
 import { useState } from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/PortfolioTabs";
 
 const STRATEGIES = [
   { key: "Close-Based", label: "Close-Based" },
