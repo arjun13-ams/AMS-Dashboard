@@ -17,6 +17,7 @@ export default function ChartView() {
   const [selectedSymbol, setSelectedSymbol] = useState<string>("TCS");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [ohlc, setOhlc] = useState<any>(null);
+  const [candleData, setCandleData] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchSymbols() {
@@ -66,7 +67,7 @@ export default function ChartView() {
 
       if (error || !data) return;
 
-      const candleData = data.map((row) => ({
+      const candleDataNew = data.map((row) => ({
         time: row.date,
         open: row.open,
         high: row.high,
@@ -74,7 +75,8 @@ export default function ChartView() {
         close: row.close,
       }));
 
-      candleSeriesRef.current?.setData(candleData);
+      candleSeriesRef.current?.setData(candleDataNew);
+      setCandleData(candleDataNew);
 
       const lastBar = data[data.length - 1];
       const prevBar = data[data.length - 2];
@@ -92,10 +94,10 @@ export default function ChartView() {
         const result: { time: string; value: number }[] = [];
         let prevEma: number | undefined;
 
-        candleData.forEach((bar, i) => {
+        candleDataNew.forEach((bar, i) => {
           if (i < period - 1) return;
           if (i === period - 1) {
-            const sum = candleData.slice(0, period).reduce((acc, d) => acc + d.close, 0);
+            const sum = candleDataNew.slice(0, period).reduce((acc, d) => acc + d.close, 0);
             prevEma = sum / period;
           } else {
             if (prevEma !== undefined) {
@@ -128,12 +130,18 @@ export default function ChartView() {
     }
   };
 
+  // Reset zoom: fit visible range horizontally & reset vertical scale
   const resetZoom = () => {
-    chartRef.current?.timeScale().fitContent();
+    if (!chartRef.current || candleData.length === 0) return;
+    chartRef.current.timeScale().fitContent();
+    // Reset price scale to fit visible bars:
+    // lightweight-charts usually autoscale Y on fitContent,
+    // but you can force setData again to be sure:
+    candleSeriesRef.current?.setData(candleData);
   };
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col relative">
       <div className="mb-4">
         <input
           className="p-2 rounded border border-gray-600 bg-gray-800 text-white w-full"
@@ -171,17 +179,17 @@ export default function ChartView() {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-2">
-        <div></div>
-        <button
-          onClick={resetZoom}
-          className="px-3 py-1 rounded bg-gray-700 text-white text-xs hover:bg-gray-600"
-        >
-          Reset Zoom
-        </button>
-      </div>
+      <div ref={chartContainerRef} className="w-full relative" style={{ minHeight: 500 }} />
 
-      <div ref={chartContainerRef} className="w-full" />
+      {/* Floating Reset Zoom button */}
+      <button
+        onClick={resetZoom}
+        aria-label="Reset Zoom"
+        className="absolute bottom-4 right-4 bg-zinc-800 text-white px-3 py-1 rounded shadow hover:bg-zinc-700 select-none"
+        style={{ userSelect: "none" }}
+      >
+        🔄 Reset Zoom
+      </button>
     </div>
   );
 }
