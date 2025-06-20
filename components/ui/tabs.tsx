@@ -3,6 +3,7 @@ import { ReactNode, useState } from "react";
 type TabsProps = {
   defaultValue: string;
   children: ReactNode;
+  className?: string; // ✅ Add this
 };
 
 type TabsTriggerProps = {
@@ -18,13 +19,13 @@ type TabsContentProps = {
   children: ReactNode;
 };
 
-export function Tabs({ defaultValue, children }: TabsProps) {
+export function Tabs({ defaultValue, children, className = "" }: TabsProps) {
   const [activeTab, setActiveTab] = useState(defaultValue);
 
   const childrenArray = Array.isArray(children) ? children : [children];
 
   return (
-    <div>
+    <div className={className}>
       {childrenArray.map((child: any, i: number) => {
         if (child.type === TabsList) {
           return (
