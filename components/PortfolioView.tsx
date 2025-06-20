@@ -34,7 +34,7 @@ const CALENDAR_OPTIONS = [
   { label: 'All', value: 'All' },
 ];
 
-function getDateRange(fy: string) {
+function getDateRange(fy: string): [string | null, string | null] {
   if (fy === 'FY24') return ['2023-04-01', '2024-03-31'];
   if (fy === 'FY25') return ['2024-04-01', '2025-03-31'];
   return [null, null];
@@ -45,15 +45,15 @@ export default function PortfolioView() {
   const [metrics, setMetrics] = useState<any>({});
   const [portfolioData, setPortfolioData] = useState<{ date: string; value: number }[]>([]);
   const [activeStrategy, setActiveStrategy] = useState(STRATEGIES[0].key);
-  const [statusFilter, setStatusFilter] = useState<"open" | "closed" | "all">("open");
+  const [statusFilter, setStatusFilter] = useState<'open' | 'closed' | 'all'>('open');
+
+  const [startDate, endDate] = getDateRange(calendarFilter);
 
   useEffect(() => {
     const fetchData = async () => {
-      const [startDate, endDate] = getDateRange(calendarFilter);
       const from = startDate ? dayjs(startDate) : null;
       const to = endDate ? dayjs(endDate) : null;
       const newMetrics: any = {};
-
       let graphData: { date: string; value: number }[] = [];
 
       for (const strategy of STRATEGIES) {
@@ -64,7 +64,6 @@ export default function PortfolioView() {
           .order('rebalance_date', { ascending: true });
 
         const { data, error } = await query;
-
         if (error || !data) continue;
 
         const filtered = data.filter((d) => {
@@ -117,7 +116,8 @@ export default function PortfolioView() {
     label: s.label,
     value: s.key,
     content: (
-      <div className="flex flex-col gap-4 text-black">
+      <div className="flex flex-col gap-4 text-white">
+        {/* Calendar Filter Buttons */}
         <div className="flex gap-2">
           {CALENDAR_OPTIONS.map((opt) => (
             <button
@@ -134,17 +134,19 @@ export default function PortfolioView() {
           ))}
         </div>
 
+        {/* Metric Summary Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div className="p-4 bg-zinc-900 rounded text-white">📈 CAGR: {metrics[s.key]?.cagr ?? '--'}%</div>
-          <div className="p-4 bg-zinc-900 rounded text-white">📉 Max DD: {metrics[s.key]?.maxDD ?? '--'}%</div>
-          <div className="p-4 bg-zinc-900 rounded text-white">🔻 Current DD: {metrics[s.key]?.currentDD ?? '--'}%</div>
-          <div className="p-4 bg-zinc-900 rounded text-white">📊 Return %: {metrics[s.key]?.absReturn ?? '--'}%</div>
-          <div className="p-4 bg-zinc-900 rounded text-white">⚖️ Sharpe: {metrics[s.key]?.sharpe ?? '--'}</div>
-          <div className="p-4 bg-zinc-900 rounded text-white">💰 Realized P&L: ₹--</div>
-          <div className="p-4 bg-zinc-900 rounded text-white">💼 Unrealized P&L: ₹--</div>
-          <div className="p-4 bg-zinc-900 rounded text-white">🎯 Win Rate: --%</div>
+          <div className="p-4 bg-zinc-900 rounded">📈 CAGR: {metrics[s.key]?.cagr ?? '--'}%</div>
+          <div className="p-4 bg-zinc-900 rounded">📉 Max DD: {metrics[s.key]?.maxDD ?? '--'}%</div>
+          <div className="p-4 bg-zinc-900 rounded">🔻 Current DD: {metrics[s.key]?.currentDD ?? '--'}%</div>
+          <div className="p-4 bg-zinc-900 rounded">📊 Return %: {metrics[s.key]?.absReturn ?? '--'}%</div>
+          <div className="p-4 bg-zinc-900 rounded">⚖️ Sharpe: {metrics[s.key]?.sharpe ?? '--'}</div>
+          <div className="p-4 bg-zinc-900 rounded">💰 Realized P&L: ₹--</div>
+          <div className="p-4 bg-zinc-900 rounded">💼 Unrealized P&L: ₹--</div>
+          <div className="p-4 bg-zinc-900 rounded">🎯 Win Rate: --%</div>
         </div>
 
+        {/* Portfolio Value Chart */}
         <div className="mt-6 h-[300px] bg-zinc-800 rounded p-2">
           {portfolioData.length === 0 ? (
             <div className="flex items-center justify-center h-full text-gray-400">
@@ -157,19 +159,20 @@ export default function PortfolioView() {
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} domain={['dataMin', 'dataMax']} />
                 <Tooltip />
-                <Line type="monotone" dataKey="value" stroke="#0077b6" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="value" stroke="#00b4d8" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           )}
         </div>
 
+        {/* Trade Journal */}
         <div className="mt-6">
           <div className="mb-2 flex justify-between items-center">
             <h3 className="text-lg font-semibold">📋 Trade Journal</h3>
             <div>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as "open" | "closed" | "all")}
+                onChange={(e) => setStatusFilter(e.target.value as 'open' | 'closed' | 'all')}
                 className="bg-zinc-800 border border-gray-600 rounded text-sm px-2 py-1 text-white"
               >
                 <option value="open">Open</option>
@@ -179,14 +182,19 @@ export default function PortfolioView() {
             </div>
           </div>
 
-          <TradeJournal strategy={s.key} statusFilter={statusFilter} />
+          <TradeJournal
+            strategy={s.key}
+            statusFilter={statusFilter}
+            startDate={startDate}
+            endDate={endDate}
+          />
         </div>
       </div>
     ),
   }));
 
   return (
-    <div className="w-full p-4 bg-white text-black min-h-screen">
+    <div className="w-full p-4 bg-zinc-900 text-white min-h-screen">
       <PortfolioTabs
         tabs={tabs}
         defaultValue={STRATEGIES[0].key}
