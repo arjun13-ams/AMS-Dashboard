@@ -28,32 +28,84 @@ const STRATEGIES = [
   { key: 'P1-MV', label: 'P1-MV' },
 ];
 
-const CALENDAR_OPTIONS = [
-  { label: 'FY24', value: 'FY24' },
-  { label: 'FY25', value: 'FY25' },
-  { label: 'All', value: 'All' },
-];
+function getFiscalYear(date: dayjs.Dayjs) {
+  // FY starts April 1, ends March 31 next year
+  const year = date.year();
+  const month = date.month() + 1; // 1-based month
+  return month >= 4 ? year + 1 : year;
+}
 
-function getDateRange(fy: string): [string | null, string | null] {
-  if (fy === 'FY24') return ['2023-04-01', '2024-03-31'];
-  if (fy === 'FY25') return ['2024-04-01', '2025-03-31'];
-  return [null, null];
+function getFiscalYearLabel(fy: number) {
+  // FY26 means Apr 2025 - Mar 2026
+  return `FY${String(fy).slice(-2).padStart(2, '0')}`;
 }
 
 export default function PortfolioView() {
-  const [calendarFilter, setCalendarFilter] = useState('FY25');
+  const [calendarFilter, setCalendarFilter] = useState<string>('');
+  const [fiscalYears, setFiscalYears] = useState<{ label: string; value: string }[]>([]);
   const [metrics, setMetrics] = useState<any>({});
   const [portfolioData, setPortfolioData] = useState<{ date: string; value: number }[]>([]);
   const [activeStrategy, setActiveStrategy] = useState(STRATEGIES[0].key);
   const [statusFilter, setStatusFilter] = useState<'open' | 'closed' | 'all'>('open');
 
-  const [startDate, endDate] = getDateRange(calendarFilter);
+  // Calculate last 3 fiscal years dynamically from max rebalance_date
+  useEffect(() => {
+    const fetchMaxDateAndSetFY = async () => {
+      const { data, error } = await supabase
+        .from('portfolio_history')
+        .select('rebalance_date')
+        .order('rebalance_date', { ascending: false })
+        .limit(1);
+
+      if (error || !data || data.length === 0) {
+        // fallback to current FY
+        const nowFY = getFiscalYear(dayjs());
+        const fyOptions = [nowFY - 2, nowFY - 1, nowFY]
+          .map((fy) => ({
+            label: getFiscalYearLabel(fy),
+            value: getFiscalYearLabel(fy),
+          }))
+          .reverse();
+        setFiscalYears(fyOptions);
+        setCalendarFilter(fyOptions[fyOptions.length - 1].value);
+        return;
+      }
+
+      const maxDate = dayjs(data[0].rebalance_date);
+      const maxFY = getFiscalYear(maxDate);
+      const fyOptions = [maxFY - 2, maxFY - 1, maxFY]
+        .map((fy) => ({
+          label: getFiscalYearLabel(fy),
+          value: getFiscalYearLabel(fy),
+        }))
+        .reverse();
+
+      setFiscalYears(fyOptions);
+      setCalendarFilter(fyOptions[fyOptions.length - 1].value);
+    };
+
+    fetchMaxDateAndSetFY();
+  }, []);
+
+  function getDateRange(fy: string) {
+    // e.g. FY26 -> 2025-04-01 to 2026-03-31
+    if (!fy.startsWith('FY')) return [null, null];
+    const fyNum = Number('20' + fy.slice(2));
+    if (isNaN(fyNum)) return [null, null];
+    const start = dayjs(`${fyNum - 1}-04-01`).format('YYYY-MM-DD');
+    const end = dayjs(`${fyNum}-03-31`).format('YYYY-MM-DD');
+    return [start, end];
+  }
 
   useEffect(() => {
+    if (!calendarFilter) return;
+
     const fetchData = async () => {
+      const [startDate, endDate] = getDateRange(calendarFilter);
       const from = startDate ? dayjs(startDate) : null;
       const to = endDate ? dayjs(endDate) : null;
       const newMetrics: any = {};
+
       let graphData: { date: string; value: number }[] = [];
 
       for (const strategy of STRATEGIES) {
@@ -64,6 +116,7 @@ export default function PortfolioView() {
           .order('rebalance_date', { ascending: true });
 
         const { data, error } = await query;
+
         if (error || !data) continue;
 
         const filtered = data.filter((d) => {
@@ -117,9 +170,8 @@ export default function PortfolioView() {
     value: s.key,
     content: (
       <div className="flex flex-col gap-4 text-white">
-        {/* Calendar Filter Buttons */}
         <div className="flex gap-2">
-          {CALENDAR_OPTIONS.map((opt) => (
+          {fiscalYears.map((opt) => (
             <button
               key={opt.value}
               onClick={() => setCalendarFilter(opt.value)}
@@ -134,19 +186,17 @@ export default function PortfolioView() {
           ))}
         </div>
 
-        {/* Metric Summary Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div className="p-4 bg-zinc-900 rounded">📈 CAGR: {metrics[s.key]?.cagr ?? '--'}%</div>
-          <div className="p-4 bg-zinc-900 rounded">📉 Max DD: {metrics[s.key]?.maxDD ?? '--'}%</div>
-          <div className="p-4 bg-zinc-900 rounded">🔻 Current DD: {metrics[s.key]?.currentDD ?? '--'}%</div>
-          <div className="p-4 bg-zinc-900 rounded">📊 Return %: {metrics[s.key]?.absReturn ?? '--'}%</div>
-          <div className="p-4 bg-zinc-900 rounded">⚖️ Sharpe: {metrics[s.key]?.sharpe ?? '--'}</div>
-          <div className="p-4 bg-zinc-900 rounded">💰 Realized P&L: ₹--</div>
-          <div className="p-4 bg-zinc-900 rounded">💼 Unrealized P&L: ₹--</div>
-          <div className="p-4 bg-zinc-900 rounded">🎯 Win Rate: --%</div>
+          <div className="p-4 bg-zinc-900 rounded text-white">📈 CAGR: {metrics[s.key]?.cagr ?? '--'}%</div>
+          <div className="p-4 bg-zinc-900 rounded text-white">📉 Max DD: {metrics[s.key]?.maxDD ?? '--'}%</div>
+          <div className="p-4 bg-zinc-900 rounded text-white">🔻 Current DD: {metrics[s.key]?.currentDD ?? '--'}%</div>
+          <div className="p-4 bg-zinc-900 rounded text-white">📊 Return %: {metrics[s.key]?.absReturn ?? '--'}%</div>
+          <div className="p-4 bg-zinc-900 rounded text-white">⚖️ Sharpe: {metrics[s.key]?.sharpe ?? '--'}</div>
+          <div className="p-4 bg-zinc-900 rounded text-white">💰 Realized P&L: ₹--</div>
+          <div className="p-4 bg-zinc-900 rounded text-white">💼 Unrealized P&L: ₹--</div>
+          <div className="p-4 bg-zinc-900 rounded text-white">🎯 Win Rate: --%</div>
         </div>
 
-        {/* Portfolio Value Chart */}
         <div className="mt-6 h-[300px] bg-zinc-800 rounded p-2">
           {portfolioData.length === 0 ? (
             <div className="flex items-center justify-center h-full text-gray-400">
@@ -159,16 +209,15 @@ export default function PortfolioView() {
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} domain={['dataMin', 'dataMax']} />
                 <Tooltip />
-                <Line type="monotone" dataKey="value" stroke="#00b4d8" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="value" stroke="#0077b6" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           )}
         </div>
 
-        {/* Trade Journal */}
         <div className="mt-6">
           <div className="mb-2 flex justify-between items-center">
-            <h3 className="text-lg font-semibold">📋 Trade Journal</h3>
+            {/* Removed duplicate Trade Journal header here */}
             <div>
               <select
                 value={statusFilter}
@@ -185,8 +234,8 @@ export default function PortfolioView() {
           <TradeJournal
             strategy={s.key}
             statusFilter={statusFilter}
-            startDate={startDate}
-            endDate={endDate}
+            startDate={getDateRange(calendarFilter)[0]}
+            endDate={getDateRange(calendarFilter)[1]}
           />
         </div>
       </div>
