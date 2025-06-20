@@ -13,7 +13,7 @@ type PortfolioTabsProps = {
   defaultValue: string;
 };
 
-export function PortfolioTabs({ tabs, defaultValue }: PortfolioTabsProps) {
+export default function PortfolioTabs({ tabs, defaultValue }: PortfolioTabsProps) {
   const [activeTab, setActiveTab] = useState(defaultValue);
 
   return (
