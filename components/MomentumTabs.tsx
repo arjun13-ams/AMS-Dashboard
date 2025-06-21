@@ -177,6 +177,41 @@ function calculatePhysicsBasedMomentum(ohlcvData) {
   };
 }
 
+async function fetchAllOhlcv() {
+  const batchSize = 1000;
+  let offset = 0;
+  let allRows = [];
+
+  while (true) {
+    console.log(`Fetching rows ${offset} to ${offset + batchSize - 1}...`);
+    const { data, error } = await supabase
+      .from("ohlcv_last_6_months")
+      .select("symbol, date, close, high, low, volume")
+      .order("date", { ascending: true })
+      .range(offset, offset + batchSize - 1);
+
+    if (error) {
+      console.error("Error fetching OHLCV data:", error);
+      break;
+    }
+
+    if (!data || data.length === 0) {
+      console.log("No more data to fetch.");
+      break;
+    }
+
+    allRows = allRows.concat(data);
+    offset += batchSize;
+
+    // If less than batchSize returned, we're done
+    if (data.length < batchSize) break;
+  }
+
+  console.log(`Total rows fetched: ${allRows.length}`);
+  return allRows;
+}
+
+
 // === Main Component ===
 
 export default function MomentumTabs() {
@@ -189,11 +224,7 @@ export default function MomentumTabs() {
   useEffect(() => {
     const fetchMomentumScores = async () => {
       console.log("⏳ Fetching OHLCV data from Supabase...");
-      const { data: allOhlcv, error } = await supabase
-        .from("ohlcv_last_6_months")
-        .select("symbol, date, close, high, low, volume")
-        .order("date", { ascending: true })
-        .range(0, 99999);
+      const allOhlcv = await fetchAllOhlcv();
 
       if (error) {
         console.error("❌ Error fetching OHLCV data:", error.message);
