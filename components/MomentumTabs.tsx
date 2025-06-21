@@ -20,9 +20,34 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
   const [sortConfig, setSortConfig] = useState({ key: "scoreSmooth", direction: "descending" });
 
   const filteredData = useMemo(() => {
-    let filtered = data.filter((item) =>
-      item.symbol.toLowerCase().includes(search.toLowerCase())
-    );
+    let filtered = data.filter((item) => {
+      const query = search.trim().toLowerCase();
+    
+      // Handle numeric filters
+      const match = query.match(/(score(?:Smooth|21|63))\s*([<>=]+)\s*(\d+(\.\d+)?)/);
+      if (match) {
+        const [, field, operator, valueStr] = match;
+        const value = parseFloat(valueStr);
+        if (field in item) {
+          switch (operator) {
+            case '>=': return item[field] >= value;
+            case '<=': return item[field] <= value;
+            case '>': return item[field] > value;
+            case '<': return item[field] < value;
+            case '=': return item[field] === value;
+            default: return true;
+          }
+        }
+      }
+    
+      // Default: fuzzy text search across symbol + numeric fields
+      return (
+        item.symbol.toLowerCase().includes(query) ||
+        item.scoreSmooth.toString().includes(query) ||
+        item.score21.toString().includes(query) ||
+        item.score63.toString().includes(query)
+      );
+    });
 
     if (sortConfig !== null) {
       filtered = filtered.sort((a, b) => {
@@ -272,10 +297,10 @@ export default function MomentumTabs() {
         physics: s4.length,
       });
 
-      setStrategy1(s1.sort((a, b) => b.scoreSmooth - a.scoreSmooth).slice(0, 20));
-      setStrategy2(s2.sort((a, b) => b.scoreSmooth - a.scoreSmooth).slice(0, 20));
-      setStrategy3(s3.sort((a, b) => b.scoreSmooth - a.scoreSmooth).slice(0, 20));
-      setStrategy4(s4.sort((a, b) => b.scoreSmooth - a.scoreSmooth).slice(0, 20));
+      setStrategy1(s1.sort((a, b) => b.scoreSmooth - a.scoreSmooth));
+      setStrategy2(s2.sort((a, b) => b.scoreSmooth - a.scoreSmooth));
+      setStrategy3(s3.sort((a, b) => b.scoreSmooth - a.scoreSmooth));
+      setStrategy4(s4.sort((a, b) => b.scoreSmooth - a.scoreSmooth));
 
       setLoading(false);
     };
