@@ -15,7 +15,7 @@ function getTrend(score: number) {
   return "flat";
 }
 
-function MomentumTable({ data }: { data: any[] }) {
+function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
   const [search, setSearch] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: "scoreSmooth", direction: "descending" });
 
@@ -43,6 +43,10 @@ function MomentumTable({ data }: { data: any[] }) {
     }
     setSortConfig({ key, direction });
   };
+
+  if (loading) {
+    return <div className="text-white py-6 text-center">Loading data...</div>;
+  }
 
   return (
     <div>
@@ -180,21 +184,37 @@ export default function MomentumTabs() {
   const [strategy2, setStrategy2] = useState([]);
   const [strategy3, setStrategy3] = useState([]);
   const [strategy4, setStrategy4] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchMomentumScores = async () => {
-      const { data: allOhlcv } = await supabase
+      console.log("⏳ Fetching OHLCV data from Supabase...");
+      const { data: allOhlcv, error } = await supabase
         .from("ohlcv_last_6_months")
         .select("symbol, date, close, high, low, volume")
         .order("date", { ascending: true });
 
-      if (!allOhlcv) return;
+      if (error) {
+        console.error("❌ Error fetching OHLCV data:", error.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!allOhlcv || allOhlcv.length === 0) {
+        console.warn("⚠️ No OHLCV data returned.");
+        setLoading(false);
+        return;
+      }
+
+      console.log("✅ OHLCV data fetched:", allOhlcv.length, "rows");
 
       const grouped = allOhlcv.reduce((acc, row) => {
         acc[row.symbol] = acc[row.symbol] || [];
         acc[row.symbol].push(row);
         return acc;
       }, {} as Record<string, any[]>);
+
+      console.log("📦 Grouped data by symbol:", Object.keys(grouped).length, "symbols");
 
       const s1 = [], s2 = [], s3 = [], s4 = [];
 
@@ -218,10 +238,19 @@ export default function MomentumTabs() {
         if (physicsScore) s4.push({ symbol, ...physicsScore });
       }
 
+      console.log("📊 Strategy data prepared: ", {
+        closeBased: s1.length,
+        trueRange: s2.length,
+        combined: s3.length,
+        physics: s4.length,
+      });
+
       setStrategy1(s1.sort((a, b) => b.scoreSmooth - a.scoreSmooth).slice(0, 20));
       setStrategy2(s2.sort((a, b) => b.scoreSmooth - a.scoreSmooth).slice(0, 20));
       setStrategy3(s3.sort((a, b) => b.scoreSmooth - a.scoreSmooth).slice(0, 20));
       setStrategy4(s4.sort((a, b) => b.scoreSmooth - a.scoreSmooth).slice(0, 20));
+
+      setLoading(false);
     };
 
     fetchMomentumScores();
@@ -236,16 +265,16 @@ export default function MomentumTabs() {
         <TabsTrigger value="strategy4">Physics Based Momentum</TabsTrigger>
       </TabsList>
       <TabsContent value="strategy1">
-        <MomentumTable data={strategy1} />
+        <MomentumTable data={strategy1} loading={loading} />
       </TabsContent>
       <TabsContent value="strategy2">
-        <MomentumTable data={strategy2} />
+        <MomentumTable data={strategy2} loading={loading} />
       </TabsContent>
       <TabsContent value="strategy3">
-        <MomentumTable data={strategy3} />
+        <MomentumTable data={strategy3} loading={loading} />
       </TabsContent>
       <TabsContent value="strategy4">
-        <MomentumTable data={strategy4} />
+        <MomentumTable data={strategy4} loading={loading} />
       </TabsContent>
     </Tabs>
   );
