@@ -167,13 +167,14 @@ function calculatePhysicsBasedMomentum(ohlcvData) {
   const p2_short = mass_short === 0 ? 0 : p1_short / mass_short;
   const p2_long = mass_long === 0 ? 0 : p1_long / mass_long;
   const p2_smooth = 0.6 * p2_short + 0.4 * p2_long;
+  const p1_smooth = 0.6 * p1_short + 0.4 * p1_long;
 
-  console.log("[Physics]", { p2_short, p2_long, p2_smooth });
+  console.log("[Physics]", { p1_short, p1_long, p1_smooth });
 
   return {
-    score21: +p2_short.toFixed(2),
-    score63: +p2_long.toFixed(2),
-    scoreSmooth: +p2_smooth.toFixed(2),
+    score21: +p1_short.toFixed(2),
+    score63: +p1_long.toFixed(2),
+    scoreSmooth: +p1_smooth.toFixed(2),
   };
 }
 
