@@ -192,7 +192,8 @@ export default function MomentumTabs() {
       const { data: allOhlcv, error } = await supabase
         .from("ohlcv_last_6_months")
         .select("symbol, date, close, high, low, volume")
-        .order("date", { ascending: true });
+        .order("date", { ascending: true })
+        .range(0, 99999);
 
       if (error) {
         console.error("❌ Error fetching OHLCV data:", error.message);
