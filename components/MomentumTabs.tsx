@@ -64,7 +64,7 @@ function calculateTrueRangeMomentum(ohlcvData) {
 }
 
 function calculatePhysicsBasedMomentum(ohlcvData) {
-  if (!ohllcData || ohlcvData.length < 63) return null;
+  if (!ohlcvData || ohlcvData.length < 63) return null;
   ohlcvData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const log = (x) => Math.log(x);
