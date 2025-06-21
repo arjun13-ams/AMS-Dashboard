@@ -117,6 +117,7 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
         <table className="min-w-full divide-y divide-gray-700">
           <thead className="bg-gray-800 text-white">
             <tr>
+              <th className="px-4 py-2 text-center">RANK</th>
               <th className="cursor-pointer px-4 py-2 text-left" onClick={() => requestSort("symbol")}>SYMBOL</th>
               <th className="cursor-pointer px-4 py-2 text-right" onClick={() => requestSort("scoreSmooth")}>SCORE</th>
               <th className="cursor-pointer px-4 py-2 text-right" onClick={() => requestSort("score21")}>21D</th>
@@ -130,8 +131,9 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
                 <td colSpan={5} className="text-center py-4 text-gray-500">No stocks found.</td>
               </tr>
             ) : (
-              filteredData.map(({ symbol, scoreSmooth, score21, score63 }) => (
+              filteredData.map(({ symbol, scoreSmooth, score21, score63, rank }) => (
                 <tr key={symbol}>
+                  <td className="px-4 py-2 text-center">{rank}</td>
                   <td className="px-4 py-2 font-semibold">{symbol}</td>
                   <td className="px-4 py-2 text-right">{scoreSmooth.toFixed(2)}</td>
                   <td className="px-4 py-2 text-right">{score21.toFixed(2)}</td>
@@ -330,10 +332,10 @@ export default function MomentumTabs() {
         physics: s4.length,
       });
 
-      setStrategy1(s1.sort((a, b) => b.scoreSmooth - a.scoreSmooth));
-      setStrategy2(s2.sort((a, b) => b.scoreSmooth - a.scoreSmooth));
-      setStrategy3(s3.sort((a, b) => b.scoreSmooth - a.scoreSmooth));
-      setStrategy4(s4.sort((a, b) => b.scoreSmooth - a.scoreSmooth));
+      setStrategy1(s1.sort((a, b) => b.scoreSmooth - a.scoreSmooth).map((item, index) => ({ ...item, rank: index + 1 })));
+      setStrategy2(s2.sort((a, b) => b.scoreSmooth - a.scoreSmooth).map((item, index) => ({ ...item, rank: index + 1 })));
+      setStrategy3(s3.sort((a, b) => b.scoreSmooth - a.scoreSmooth).map((item, index) => ({ ...item, rank: index + 1 })));
+      setStrategy4(s4.sort((a, b) => b.scoreSmooth - a.scoreSmooth).map((item, index) => ({ ...item, rank: index + 1 })));
 
       setLoading(false);
     };
