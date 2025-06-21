@@ -18,28 +18,24 @@ function getTrend(score21: number, score63: number) {
 
 function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
   const [search, setSearch] = useState("");
+  const [topN, setTopN] = useState("20");
   const [sortConfig, setSortConfig] = useState({ key: "scoreSmooth", direction: "descending" });
 
   const filteredData = useMemo(() => {
     let filtered = data;
-  
     const query = search.trim().toLowerCase();
     const opRegex = /(score|21d|63d)\s*([<>=]+)\s*(\d+(\.\d+)?)/;
-  
-    // === Advanced Filter ===
+
     const match = query.match(opRegex);
     if (match) {
       const [, fieldAlias, operator, rawValue] = match;
       const value = parseFloat(rawValue);
-  
       const fieldMap = {
         score: "scoreSmooth",
         "21d": "score21",
         "63d": "score63",
       };
-  
       const field = fieldMap[fieldAlias as keyof typeof fieldMap];
-  
       filtered = filtered.filter((item) => {
         const val = item[field];
         switch (operator) {
@@ -51,21 +47,12 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
           default: return true;
         }
       });
-  
     } else if (["up", "down", "flat"].includes(query)) {
-      // === Fuzzy Trend Filter ===
       filtered = filtered.filter((item) => {
-        const trend =
-          item.score21 > item.score63
-            ? "up"
-            : item.score21 < item.score63
-            ? "down"
-            : "flat";
+        const trend = item.score21 > item.score63 ? "up" : item.score21 < item.score63 ? "down" : "flat";
         return trend === query;
       });
-  
     } else if (query) {
-      // === Fuzzy Text Match (symbol + scores as strings) ===
       filtered = filtered.filter((item) =>
         item.symbol.toLowerCase().includes(query) ||
         item.scoreSmooth.toString().includes(query) ||
@@ -73,8 +60,7 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
         item.score63.toString().includes(query)
       );
     }
-  
-    // === Sorting ===
+
     if (sortConfig !== null) {
       filtered = filtered.sort((a, b) => {
         const aVal = a[sortConfig.key];
@@ -84,9 +70,14 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
         return 0;
       });
     }
-  
+
+    const n = parseInt(topN);
+    if (!isNaN(n) && n > 0) {
+      filtered = filtered.slice(0, n);
+    }
+
     return filtered;
-  }, [data, search, sortConfig]);
+  }, [data, search, topN, sortConfig]);
 
   const requestSort = (key: string) => {
     let direction = "ascending";
@@ -102,21 +93,34 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
 
   return (
     <div>
-      <input
-        type="text"
-        placeholder="Search symbol or try: score >= 60, 21d < 40, 63d = 90"
-        className="mb-4 p-2 rounded border border-gray-600 bg-zinc-900 text-white w-full max-w-sm"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      <div className="flex items-center gap-4 mb-4">
+        <input
+          type="text"
+          placeholder="Search or try: score >= 60, 21d < 40, up"
+          className="p-2 rounded border border-gray-600 bg-zinc-900 text-white w-full max-w-md"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <div className="flex items-center gap-2">
+          <span className="text-white">Top</span>
+          <input
+            type="number"
+            min="0"
+            placeholder="All"
+            className="p-2 rounded border border-gray-600 bg-zinc-900 text-white w-20"
+            value={topN}
+            onChange={(e) => setTopN(e.target.value)}
+          />
+        </div>
+      </div>
       <div className="overflow-x-auto rounded border border-gray-700">
         <table className="min-w-full divide-y divide-gray-700">
           <thead className="bg-gray-800 text-white">
             <tr>
               <th className="cursor-pointer px-4 py-2 text-left" onClick={() => requestSort("symbol")}>SYMBOL</th>
-              <th className="cursor-pointer px-4 py-2 text-right" onClick={() => requestSort("scoreSmooth")}>MOMENTUM SCORE</th>
-              <th className="cursor-pointer px-4 py-2 text-right" onClick={() => requestSort("score21")}>21D SCORE</th>
-              <th className="cursor-pointer px-4 py-2 text-right" onClick={() => requestSort("score63")}>63D SCORE</th>
+              <th className="cursor-pointer px-4 py-2 text-right" onClick={() => requestSort("scoreSmooth")}>SCORE</th>
+              <th className="cursor-pointer px-4 py-2 text-right" onClick={() => requestSort("score21")}>21D</th>
+              <th className="cursor-pointer px-4 py-2 text-right" onClick={() => requestSort("score63")}>63D</th>
               <th className="px-4 py-2 text-center">TREND</th>
             </tr>
           </thead>
@@ -142,6 +146,8 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
     </div>
   );
 }
+
+export default MomentumTable;
 
 // === Momentum Calculators ===
 
