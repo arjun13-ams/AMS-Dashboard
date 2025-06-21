@@ -9,46 +9,64 @@ const supabase = createClient(
 
 // === Helper Components and Functions ===
 
-function getTrend(score: number) {
-  if (score > 60) return "up";
-  if (score < 40) return "down";
-  return "flat";
+function getTrend(score21: number, score63: number) {
+  if (score21 > score63) return "📈 up";
+  if (score21 < score63) return "📉 down";
+  return "➡ flat";
 }
+
 
 function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
   const [search, setSearch] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: "scoreSmooth", direction: "descending" });
 
   const filteredData = useMemo(() => {
-    let filtered = data.filter((item) => {
-      const query = search.trim().toLowerCase();
-    
-      // Handle numeric filters
-      const match = query.match(/(score(?:Smooth|21|63))\s*([<>=]+)\s*(\d+(\.\d+)?)/);
-      if (match) {
-        const [, field, operator, valueStr] = match;
-        const value = parseFloat(valueStr);
-        if (field in item) {
-          switch (operator) {
-            case '>=': return item[field] >= value;
-            case '<=': return item[field] <= value;
-            case '>': return item[field] > value;
-            case '<': return item[field] < value;
-            case '=': return item[field] === value;
-            default: return true;
-          }
+    let filtered = data;
+  
+    const query = search.trim().toLowerCase();
+  
+    // Try advanced filters first (e.g., score >= 60, 21d < 40, etc.)
+    const match = query.match(/(score|21d|63d)\s*([<>=]+)\s*(\d+(\.\d+)?)/);
+  
+    if (match) {
+      const [, fieldAlias, operator, rawValue] = match;
+      const value = parseFloat(rawValue);
+  
+      const fieldMap = {
+        score: "scoreSmooth",
+        "21d": "score21",
+        "63d": "score63",
+      };
+  
+      const field = fieldMap[fieldAlias as keyof typeof fieldMap];
+  
+      filtered = filtered.filter((item) => {
+        const val = item[field];
+        switch (operator) {
+          case ">=":
+            return val >= value;
+          case "<=":
+            return val <= value;
+          case ">":
+            return val > value;
+          case "<":
+            return val < value;
+          case "=":
+            return val === value;
+          default:
+            return true;
         }
-      }
-    
-      // Default: fuzzy text search across symbol + numeric fields
-      return (
+      });
+    } else if (query) {
+      // Fallback fuzzy filter
+      filtered = filtered.filter((item) =>
         item.symbol.toLowerCase().includes(query) ||
         item.scoreSmooth.toString().includes(query) ||
         item.score21.toString().includes(query) ||
         item.score63.toString().includes(query)
       );
-    });
-
+    }
+  
     if (sortConfig !== null) {
       filtered = filtered.sort((a, b) => {
         const aVal = a[sortConfig.key];
@@ -58,6 +76,7 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
         return 0;
       });
     }
+  
     return filtered;
   }, [data, search, sortConfig]);
 
@@ -77,7 +96,7 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
     <div>
       <input
         type="text"
-        placeholder="Search symbol..."
+        placeholder="Search symbol or try: score >= 60, 21d < 40, 63d = 90"
         className="mb-4 p-2 rounded border border-gray-600 bg-zinc-900 text-white w-full max-w-sm"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -105,7 +124,7 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
                   <td className="px-4 py-2 text-right">{scoreSmooth.toFixed(2)}</td>
                   <td className="px-4 py-2 text-right">{score21.toFixed(2)}</td>
                   <td className="px-4 py-2 text-right">{score63.toFixed(2)}</td>
-                  <td className="px-4 py-2 text-center">{getTrend(scoreSmooth)}</td>
+                  <td className="px-4 py-2 text-center">{getTrend(score21, score63)}</td>
                 </tr>
               ))
             )}
