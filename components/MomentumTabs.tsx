@@ -147,7 +147,7 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
   );
 }
 
-export default MomentumTable;
+//export default MomentumTable;
 
 // === Momentum Calculators ===
 
