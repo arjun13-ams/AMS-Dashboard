@@ -226,12 +226,6 @@ export default function MomentumTabs() {
       console.log("⏳ Fetching OHLCV data from Supabase...");
       const allOhlcv = await fetchAllOhlcv();
 
-      if (error) {
-        console.error("❌ Error fetching OHLCV data:", error.message);
-        setLoading(false);
-        return;
-      }
-
       if (!allOhlcv || allOhlcv.length === 0) {
         console.warn("⚠️ No OHLCV data returned.");
         setLoading(false);
