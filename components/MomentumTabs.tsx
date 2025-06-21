@@ -7,6 +7,88 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// === Helper Components and Functions ===
+
+function getTrend(score: number) {
+  if (score > 60) return "up";
+  if (score < 40) return "down";
+  return "flat";
+}
+
+function MomentumTable({ data }: { data: any[] }) {
+  const [search, setSearch] = useState("");
+  const [sortConfig, setSortConfig] = useState({ key: "scoreSmooth", direction: "descending" });
+
+  const filteredData = useMemo(() => {
+    let filtered = data.filter((item) =>
+      item.symbol.toLowerCase().includes(search.toLowerCase())
+    );
+
+    if (sortConfig !== null) {
+      filtered = filtered.sort((a, b) => {
+        const aVal = a[sortConfig.key];
+        const bVal = b[sortConfig.key];
+        if (aVal < bVal) return sortConfig.direction === "ascending" ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === "ascending" ? 1 : -1;
+        return 0;
+      });
+    }
+    return filtered;
+  }, [data, search, sortConfig]);
+
+  const requestSort = (key: string) => {
+    let direction = "ascending";
+    if (sortConfig.key === key && sortConfig.direction === "ascending") {
+      direction = "descending";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  return (
+    <div>
+      <input
+        type="text"
+        placeholder="Search symbol..."
+        className="mb-4 p-2 rounded border border-gray-600 bg-zinc-900 text-white w-full max-w-sm"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      <div className="overflow-x-auto rounded border border-gray-700">
+        <table className="min-w-full divide-y divide-gray-700">
+          <thead className="bg-gray-800 text-white">
+            <tr>
+              <th className="cursor-pointer px-4 py-2 text-left" onClick={() => requestSort("symbol")}>SYMBOL</th>
+              <th className="cursor-pointer px-4 py-2 text-right" onClick={() => requestSort("scoreSmooth")}>MOMENTUM SCORE</th>
+              <th className="cursor-pointer px-4 py-2 text-right" onClick={() => requestSort("score21")}>21D SCORE</th>
+              <th className="cursor-pointer px-4 py-2 text-right" onClick={() => requestSort("score63")}>63D SCORE</th>
+              <th className="px-4 py-2 text-center">TREND</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-700 text-white">
+            {filteredData.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="text-center py-4 text-gray-500">No stocks found.</td>
+              </tr>
+            ) : (
+              filteredData.map(({ symbol, scoreSmooth, score21, score63 }) => (
+                <tr key={symbol}>
+                  <td className="px-4 py-2 font-semibold">{symbol}</td>
+                  <td className="px-4 py-2 text-right">{scoreSmooth.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-right">{score21.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-right">{score63.toFixed(2)}</td>
+                  <td className="px-4 py-2 text-center">{getTrend(scoreSmooth)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// === Momentum Calculators ===
+
 function calculateCloseBasedMomentum(ohlcvData) {
   if (!ohlcvData || ohlcvData.length < 63) return null;
   ohlcvData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -91,6 +173,8 @@ function calculatePhysicsBasedMomentum(ohlcvData) {
   };
 }
 
+// === Main Component ===
+
 export default function MomentumTabs() {
   const [strategy1, setStrategy1] = useState([]);
   const [strategy2, setStrategy2] = useState([]);
@@ -110,7 +194,7 @@ export default function MomentumTabs() {
         acc[row.symbol] = acc[row.symbol] || [];
         acc[row.symbol].push(row);
         return acc;
-      }, {});
+      }, {} as Record<string, any[]>);
 
       const s1 = [], s2 = [], s3 = [], s4 = [];
 
@@ -134,15 +218,10 @@ export default function MomentumTabs() {
         if (physicsScore) s4.push({ symbol, ...physicsScore });
       }
 
-      s1.sort((a, b) => b.scoreSmooth - a.scoreSmooth);
-      s2.sort((a, b) => b.scoreSmooth - a.scoreSmooth);
-      s3.sort((a, b) => b.scoreSmooth - a.scoreSmooth);
-      s4.sort((a, b) => b.scoreSmooth - a.scoreSmooth);
-
-      setStrategy1(s1.slice(0, 20));
-      setStrategy2(s2.slice(0, 20));
-      setStrategy3(s3.slice(0, 20));
-      setStrategy4(s4.slice(0, 20));
+      setStrategy1(s1.sort((a, b) => b.scoreSmooth - a.scoreSmooth).slice(0, 20));
+      setStrategy2(s2.sort((a, b) => b.scoreSmooth - a.scoreSmooth).slice(0, 20));
+      setStrategy3(s3.sort((a, b) => b.scoreSmooth - a.scoreSmooth).slice(0, 20));
+      setStrategy4(s4.sort((a, b) => b.scoreSmooth - a.scoreSmooth).slice(0, 20));
     };
 
     fetchMomentumScores();
