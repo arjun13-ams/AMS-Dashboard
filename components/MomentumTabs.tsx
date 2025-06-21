@@ -24,10 +24,10 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
     let filtered = data;
   
     const query = search.trim().toLowerCase();
+    const opRegex = /(score|21d|63d)\s*([<>=]+)\s*(\d+(\.\d+)?)/;
   
-    // Try advanced filters first (e.g., score >= 60, 21d < 40, etc.)
-    const match = query.match(/(score|21d|63d)\s*([<>=]+)\s*(\d+(\.\d+)?)/);
-  
+    // === Advanced Filter ===
+    const match = query.match(opRegex);
     if (match) {
       const [, fieldAlias, operator, rawValue] = match;
       const value = parseFloat(rawValue);
@@ -43,22 +43,29 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
       filtered = filtered.filter((item) => {
         const val = item[field];
         switch (operator) {
-          case ">=":
-            return val >= value;
-          case "<=":
-            return val <= value;
-          case ">":
-            return val > value;
-          case "<":
-            return val < value;
-          case "=":
-            return val === value;
-          default:
-            return true;
+          case ">=": return val >= value;
+          case "<=": return val <= value;
+          case ">": return val > value;
+          case "<": return val < value;
+          case "=": return val === value;
+          default: return true;
         }
       });
+  
+    } else if (["up", "down", "flat"].includes(query)) {
+      // === Fuzzy Trend Filter ===
+      filtered = filtered.filter((item) => {
+        const trend =
+          item.score21 > item.score63
+            ? "up"
+            : item.score21 < item.score63
+            ? "down"
+            : "flat";
+        return trend === query;
+      });
+  
     } else if (query) {
-      // Fallback fuzzy filter
+      // === Fuzzy Text Match (symbol + scores as strings) ===
       filtered = filtered.filter((item) =>
         item.symbol.toLowerCase().includes(query) ||
         item.scoreSmooth.toString().includes(query) ||
@@ -67,6 +74,7 @@ function MomentumTable({ data, loading }: { data: any[]; loading: boolean }) {
       );
     }
   
+    // === Sorting ===
     if (sortConfig !== null) {
       filtered = filtered.sort((a, b) => {
         const aVal = a[sortConfig.key];
