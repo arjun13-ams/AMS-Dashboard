@@ -211,6 +211,53 @@ function calculateTrueRangeMomentum(ohlcvData) {
 
 function calculatePhysicsBasedMomentum(ohlcvData) {
   if (!ohlcvData || ohlcvData.length < 63) return null;
+
+  // Step 1: Sort by date ascending (oldest first)
+  ohlcvData.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  // Step 2: Use the latest available trading day
+  const latestIndex = ohlcvData.length - 1;
+  const latestDate = ohlcvData[latestIndex].date;
+
+  // Step 3: Extract last 63 trading days (we include a few extra for velocity)
+  const recentData = ohlcvData.slice(-64); // one extra for velocity diff
+  if (recentData.length < 63) return null;
+
+  const log = (x) => Math.log(x);
+  const velocity = recentData.map((d, i) =>
+    i > 0 ? log(d.close) - log(recentData[i - 1].close) : 0
+  );
+  const mass = recentData.map((d) => d.close * d.volume);
+  const mv = velocity.map((v, i) => v * mass[i]);
+
+  const sum = (arr) => arr.reduce((a, b) => a + b, 0);
+
+  // Step 4: Compute scores using last 21 and 63 trading rows
+  const p1_short = sum(mv.slice(-21));
+  const p1_long = sum(mv.slice(-63));
+  const mass_short = sum(mass.slice(-21));
+  const mass_long = sum(mass.slice(-63));
+
+  const p2_short = mass_short === 0 ? 0 : p1_short / mass_short;
+  const p2_long = mass_long === 0 ? 0 : p1_long / mass_long;
+  const p2_smooth = 0.6 * p2_short + 0.4 * p2_long;
+  const p1_smooth = 0.6 * p1_short + 0.4 * p1_long;
+
+  console.log(`[Physics] ${ohlcvData[0].symbol || ''} on ${latestDate}`, {
+    p1_short,
+    p1_long,
+    p1_smooth,
+  });
+
+  return {
+    score21: +p1_short.toFixed(2),
+    score63: +p1_long.toFixed(2),
+    scoreSmooth: +p1_smooth.toFixed(2),
+  };
+}
+
+function calculatePhysicsBasedMomentum_old(ohlcvData) {
+  if (!ohlcvData || ohlcvData.length < 63) return null;
   ohlcvData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const log = (x) => Math.log(x);
