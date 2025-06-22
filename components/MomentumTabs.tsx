@@ -213,7 +213,8 @@ function calculatePhysicsBasedMomentum(ohlcvData) {
   if (!ohlcvData || ohlcvData.length < 63) return null;
 
   // Step 1: Sort by date ascending (oldest first)
-  ohlcvData.sort((a, b) => new Date(a.date) - new Date(b.date));
+  #ohlcvData.sort((a, b) => new Date(a.date) - new Date(b.date));
+  ohlcvData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   // Step 2: Use the latest available trading day
   const latestIndex = ohlcvData.length - 1;
